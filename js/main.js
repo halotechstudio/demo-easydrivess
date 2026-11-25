@@ -90,12 +90,14 @@ function bar() {
       h('button', { class: 'iconbtn', style: { width: '32px', height: '32px' }, 'aria-label': presenter.playing ? 'Pause' : 'Play', onclick: () => { presenter.playing = !presenter.playing; layout(); } }, icon(presenter.playing ? 'pause' : 'play', 15)),
       h('span', { class: 'time', id: 'simclock' }, fmtTime(s.get().now)),
       h('div', { class: 'seg' }, SPEEDS.map(([l], i) => h('button', { 'aria-pressed': String(presenter.speed === i), onclick: () => { presenter.speed = i; layout(); } }, l)))),
+    h('div', { class: 'theme-toggle', role: 'group', 'aria-label': 'Theme' }, [['light', 'sun', 'Day'], ['dark', 'pause', 'Night']].map(([t, ic, l]) => h('button', { 'aria-pressed': String((document.documentElement.dataset.theme || 'dark') === t), onclick: () => { document.documentElement.dataset.theme = t; try { localStorage.setItem('ed-theme', t); } catch (e) {} layout(); } }, t === 'dark' ? moon() : icon(ic, 14), l))),
     h('div', { style: { position: 'relative' } },
       h('button', { class: 'menu-btn', onclick: () => { presenter.menu = !presenter.menu; layout(); } }, icon('spark', 16), 'Scenarios'),
       presenter.menu && h('div', { class: 'dropdown' }, SCENARIOS.map(sc => h('button', { onclick: () => { presenter.menu = false; sc.run(s, apps, presenter); layout(); } }, h('b', null, sc.title), h('small', null, sc.note))),
         h('button', { onclick: () => { presenter.menu = false; boot(); layout(); } }, h('b', null, 'Reset demo'), h('small', null, 'Back to 9:00 AM with fresh data')))));
 }
 
+const moon = () => h('svg', { viewBox: '0 0 24 24', width: 14, height: 14, fill: 'none', stroke: 'currentColor', 'stroke-width': 1.6, 'stroke-linecap': 'round' }, h('path', { d: 'M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z' }));
 function layout() {
   const root = document.getElementById('root');
   const v = presenter.view;
