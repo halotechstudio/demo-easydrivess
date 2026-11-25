@@ -76,11 +76,20 @@ export function createRider(s) {
             h('span', { class: 'btn dark sm', onclick: e => { e.stopPropagation(); topUpSheet(app, s, app.who); } }, icon('plus', 15), 'Add')),
           (r.company || r.workCompany) && h('div', { class: 'tabs-sm', style: { marginBottom: '12px' } },
             ['personal', 'work'].map(p => h('button', { 'aria-pressed': String(app.profile === p), onclick: () => { app.profile = p; ui.dirty(); } }, p === 'personal' ? 'Personal' : `Work · ${st.companies.find(c => c.id === (r.company || r.workCompany)).name}`))),
-          next && h('div', { class: 'hero', style: { marginBottom: '10px' } },
-            h('div', { class: 'num-label' }, next.templateId ? 'Repeating ride' : 'Next ride'),
-            scrollNumber(fmtTime(next.at).replace(/ (AM|PM)/, ''), [], { size: 8 }),
-            h('div', { class: 'num-label', style: { marginTop: '6px', marginBottom: 0 } }, fmtTime(next.at).slice(-2)),
-            sentence([`${next.cls} to ${placeName(next.drop)} is set. `, { chip: inr(next.fare) }, ' Driver assigned 20 min before.'])),
+          // Live hero: how soon a car can be at your door, for the trip you most likely want next. One tap books it.
+          (() => {
+            const cls = me().prefs?.cls || app.lastCls; const eta = etaFor(s, cls, rebook.pickup);
+            const near = st.drivers.filter(d => d.online && !d.busy).length;
+            return h('button', { class: 'hero', style: { width: '100%', marginBottom: '10px', display: 'block' }, onclick: () => ui.go('book', { pickup: rebook.pickup, drop: rebook.drop, trip: 'city' }) },
+              h('div', { class: 'num-label' }, eta != null ? `A ${cls} can be at your door in` : `No ${cls} free nearby`),
+              eta != null ? scrollNumber(String(eta), [eta + 2, eta + 1, Math.max(1, eta - 1), Math.max(1, eta - 2)].map(String), { size: 10 }) : h('div', { class: 'num-row' }, dotNumber('--', { size: 10, off: false })),
+              h('div', { class: 'num-label', style: { marginTop: '6px', marginBottom: 0 } }, 'min'),
+              sentence([`${near} cars free around ${placeName(rebook.pickup)}. To ${placeName(rebook.drop)} `, { chip: inr(rbEst.fare) }, ', tap to book.']));
+          })(),
+          next && h('button', { class: 'card flex', style: { width: '100%', textAlign: 'left', gap: '12px', marginBottom: '10px', padding: '12px 14px' }, onclick: () => ui.go('p-repeat') },
+            h('span', { class: 'ic' }, icon(next.templateId ? 'repeat' : 'clock')),
+            h('span', { class: 'grow' }, h('div', { style: { fontWeight: 600, fontSize: '14.5px' } }, `${next.templateId ? 'Repeating' : 'Scheduled'} · ${fmtTime(next.at)}`), h('div', { class: 'label' }, `${next.cls} to ${placeName(next.drop)} · ${inr(next.fare)} · driver assigned 20 min before`)),
+            h('span', { class: 'pill violet' }, 'Set')),
           h('button', { class: 'searchbar', onclick: () => ui.go('where', { pickup: here() }) }, icon('search'), 'Where to?'),
           h('div', { class: 'saved' }, r.saved.filter(x => x.place !== here()).map(x => h('button', { onclick: () => ui.go('book', { pickup: here(), drop: x.place, trip: x.place === 'rgia' ? 'airport' : 'city' }) }, icon(x.label === 'Home' ? 'home' : x.label === 'Airport' ? 'plane' : 'work'), x.label))),
           h('div', { class: 'choices mt16' },

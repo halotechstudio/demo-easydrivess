@@ -1,6 +1,7 @@
 // UI kit: element builder, icon set, dot-matrix numerals, tick gauge, map, shared widgets.
 import { places, roads, placeList } from '../engine/geo.js';
 import { inr } from '../engine/store.js';
+import { adMediaURL } from './admedia.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const SVG_TAGS = new Set(['svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g', 'text', 'defs', 'radialGradient', 'linearGradient', 'stop', 'ellipse', 'filter', 'feGaussianBlur', 'pattern', 'clipPath', 'mask', 'use']);
@@ -242,9 +243,13 @@ export function topbar(title, { back, menu, right } = {}) {
     right || (typeof menu === 'function' ? h('button', { class: 'iconbtn', 'aria-label': 'More options', onclick: menu }, icon('more')) : h('span')));
 }
 export function tile(k, v, unit, extra) { return h('div', { class: 'tile' }, h('div', { class: 'v' }, v, unit && h('small', null, unit)), h('div', { class: 'k' }, k), extra); }
-export function adCard(ad, onClick) {
+// Banner ad: illustrated or uploaded media on top, copy and action below.
+export function adCard(ad, onClick, { compact = false } = {}) {
   if (!ad) return null;
-  return h('div', { class: `ad ${ad.tone}` }, h('span', { class: 'tag' }, `Ad · ${ad.advertiser}`), h('div', { class: 'tt' }, ad.title), h('div', { class: 'ss' }, ad.sub), h('button', { class: 'cta', onclick: onClick }, ad.cta));
+  if (compact) return h('div', { class: `ad ${ad.tone}` }, h('span', { class: 'tag' }, `Ad · ${ad.advertiser}`), h('div', { class: 'tt' }, ad.title), h('div', { class: 'ss' }, ad.sub), h('button', { class: 'cta', onclick: onClick }, ad.cta));
+  return h('div', { class: `ad banner ${ad.tone}`, role: 'button', tabindex: 0, onclick: onClick },
+    h('div', { class: 'media', style: { backgroundImage: `url("${adMediaURL(ad)}")` } }, h('span', { class: 'tag' }, `Ad · ${ad.advertiser}`)),
+    h('div', { class: 'body' }, h('div', { class: 'grow' }, h('div', { class: 'tt' }, ad.title), h('div', { class: 'ss' }, ad.sub)), h('span', { class: 'cta' }, ad.cta)));
 }
 export const initials = name => name.replace(/^(Mr\.|Ms\.|Dr\.|Mrs\.)\s*/, '').split(/[\s&]+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 export function btn(label, { kind = 'primary', onClick, arrow = false, block = true, disabled = false, sm = false, ic } = {}) {
