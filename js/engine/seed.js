@@ -88,6 +88,9 @@ export function seed(s) {
     r.prefs = { ac: true, quiet: false, music: 'Driver\'s choice', cls: 'Sedan', womenDriver: false, pet: false, luggage: false, nightShare: true, language: 'English',
       notify: { rides: true, wallet: true, promos: true, whatsapp: true, email: true } };
     r.since = 'March 2025'; r.trips = 40 + r.id.charCodeAt(1) * 3;
+    // Past trip history used for the Frequent trips list.
+    r.freq = r.company ? [{ pickup: r.home, drop: r.company, count: 34, cls: 'Sedan' }, { pickup: r.company, drop: r.home, count: 31, cls: 'Sedan' }, { pickup: r.home, drop: 'rgia', count: 4, cls: 'Sedan' }]
+      : [{ pickup: r.home, drop: 'hitec', count: 22, cls: 'Sedan' }, { pickup: 'hitec', drop: r.home, count: 19, cls: 'Sedan' }, { pickup: r.home, drop: 'rgia', count: 6, cls: 'Sedan' }, { pickup: r.home, drop: 'banjara', count: 5, cls: 'Hatchback' }];
   }
 
   st.hotels = [
