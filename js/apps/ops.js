@@ -1,8 +1,10 @@
 import { h, icon, mark, pill, initials, dotNumber, map, tickGauge, ticksBar, adCard, sentence, carArt } from '../ui/kit.js';
-import { inr, fmtTime, uid, notify } from '../engine/store.js';
+import { inr, fmtTime, uid, notify, inbox, unread, markRead } from '../engine/store.js';
+import { callSheet, flash } from './sheets.js';
+import { led } from '../ui/fx.js';
 import { places } from '../engine/geo.js';
 import { conditionScore, classEligible, quote, CLASSES } from '../engine/pricing.js';
-import { approvePayouts } from '../engine/wallet.js';
+import { approvePayouts, rejectPayout, PAYOUT_SPEEDS } from '../engine/wallet.js';
 import { ackAlert, closeAlert } from '../engine/safety.js';
 import { adRevenue, AD_SLOTS } from '../engine/ads.js';
 import { router, ACTIVE, placeName } from './common.js';
@@ -25,7 +27,7 @@ const AI_CHECKED = new Set(ITEMS.filter(x => ['Exterior', 'Interior', 'Documents
 
 export function createOps(s) {
   const ui = router('overview');
-  const app = { id: 'ops', ui, filter: 'all', checks: {}, docs: {}, draft: null, newAd: null };
+  const app = { id: 'ops', ui, filter: 'all', checks: {}, docs: {}, draft: null, newAd: null, rules: {}, bellOpen: false };
   const st = () => s.get();
 
   const kpi = (k, v, d, tone) => h('div', { class: 'panel kpi' }, h('div', { class: 'v' }, v), h('div', { class: 'k' }, k), d && h('div', { class: 'd', style: tone ? { color: tone } : null }, d));
@@ -207,9 +209,9 @@ export function createOps(s) {
       return [head('Payouts', 'drivers paid on request.', 'Requests up to ₹2,000 are sent automatically. Larger ones wait for you.', h('button', { class: 'btn violet sm', disabled: !req.length, onclick: () => approvePayouts(s, 'all') }, req.length ? `Approve all · ${inr(req.reduce((a, p) => a + p.amount, 0))}` : 'Nothing to approve')),
         h('div', { class: 'wgrid c3' }, kpi('Waiting for you', inr(req.reduce((a, p) => a + p.amount, 0)), `${req.length} request${req.length === 1 ? '' : 's'}`), kpi('Paid today', inr(st().payouts.filter(p => p.status === 'paid').reduce((a, p) => a + p.amount, 0))), kpi('Still in driver wallets', inr(st().drivers.reduce((a, d) => a + d.wallet, 0)))),
         h('div', { class: 'panel mt16' }, h('table', { class: 't' },
-          h('thead', null, h('tr', null, ['Request', 'Driver', 'To', 'Amount', 'Status'].map(x => h('th', { class: x === 'Amount' ? 'num' : '' }, x)))),
-          h('tbody', null, st().payouts.map(p => h('tr', null, h('td', null, h('div', null, p.id), h('div', { class: 'label' }, fmtTime(p.at))), h('td', null, st().drivers.find(d => d.id === p.driverId)?.name), h('td', null, p.to), h('td', { class: 'num' }, inr(p.amount)),
-            h('td', null, p.status === 'paid' ? pill(p.how === 'auto' ? 'Paid · auto' : 'Paid', 'good') : h('button', { class: 'btn primary sm', onclick: () => approvePayouts(s, [p.id]) }, 'Approve')))))))];
+          h('thead', null, h('tr', null, ['Request', 'Driver', 'To', 'Speed', 'Amount', 'Status'].map(x => h('th', { class: x === 'Amount' ? 'num' : '' }, x)))),
+          h('tbody', null, st().payouts.map(p => h('tr', null, h('td', null, h('div', null, p.id), h('div', { class: 'label' }, fmtTime(p.at))), h('td', null, st().drivers.find(d => d.id === p.driverId)?.name), h('td', null, p.to), h('td', null, h('span', { class: 'label' }, PAYOUT_SPEEDS[p.speed || 'instant'].label)), h('td', { class: 'num' }, inr(p.amount)),
+            h('td', null, p.status === 'paid' ? h('div', null, pill(p.how === 'auto' ? 'Credited · auto' : 'Credited', 'good'), h('div', { class: 'label', style: { marginTop: '3px' } }, p.utr)) : p.status === 'processing' ? h('span', { class: 'flex', style: { gap: '8px' } }, led('var(--periwinkle)', true), 'Sending') : p.status === 'rejected' ? pill('Returned', 'alert') : h('div', { class: 'flex', style: { gap: '6px' } }, h('button', { class: 'btn primary sm', onclick: () => approvePayouts(s, [p.id]) }, 'Approve'), h('button', { class: 'btn dark sm', onclick: () => rejectPayout(s, p.id, 'Account name does not match') }, 'Return'))))))))];
     },
 
     safety() {
@@ -221,9 +223,9 @@ export function createOps(s) {
             h('div', { class: 'wgrid c2 mt16' },
               h('div', { class: 'stops' }, a.timeline.map(t => h('div', { class: 'stop done' }, h('span', { class: 'n' }, icon('check', 12)), h('div', null, h('div', { class: 't' }, t.text), h('div', { class: 's' }, fmtTime(t.at))), h('span')))),
               r && map({ height: 170, cars: [{ ...(d?.pos || places[r.pickup]), color: '#FF5A45', ring: true }], routes: [{ points: r.points, tone: 'ember' }], focus: [places[r.pickup], places[r.drop]] })),
-            a.status === 'open' && h('div', { class: 'flex mt16' }, !a.ack && h('button', { class: 'btn primary sm', onclick: () => ackAlert(s, a.id) }, icon('phone', 15), 'Acknowledge and call rider'), h('button', { class: 'btn dark sm' }, 'Call driver'), h('button', { class: 'btn dark sm', onclick: () => closeAlert(s, a.id) }, 'Mark safe and close')));
+            a.status === 'open' && h('div', { class: 'flex mt16' }, !a.ack && h('button', { class: 'btn primary sm', onclick: () => ackAlert(s, a.id) }, icon('phone', 15), 'Acknowledge and call rider'), h('button', { class: 'btn dark sm', onclick: () => callSheet(app, { name: d?.name || 'Driver', role: 'Driver on this trip' }) }, 'Call driver'), h('button', { class: 'btn dark sm', onclick: () => closeAlert(s, a.id) }, 'Mark safe and close')));
         }) : h('div', { class: 'panel' }, h('div', { class: 'label' }, 'No alerts today. Rules below apply to every ride.')),
-        h('div', { class: 'panel mt16' }, h('h3', null, 'Rules on every ride'), ['OTP before boarding', 'Night rule for women riders', 'Route deviation alerts', 'Long-stop check', 'Daily Shine Check, condition below 75 gets no premium rides'].map(t => h('div', { class: 'row' }, h('div', { class: 'grow t' }, t), h('button', { class: 'toggle', 'aria-pressed': 'true' }))))];
+        h('div', { class: 'panel mt16' }, h('h3', null, 'Rules on every ride'), ['OTP before boarding', 'Night rule for women riders', 'Route deviation alerts', 'Long-stop check', 'Daily Shine Check, condition below 75 gets no premium rides'].map(t => h('div', { class: 'row' }, led(app.rules[t] === false ? '#555' : 'var(--aqua)', app.rules[t] !== false), h('div', { class: 'grow t' }, t), h('button', { class: 'toggle', 'aria-pressed': String(app.rules[t] !== false), onclick: () => { app.rules[t] = app.rules[t] === false; flash(app, app.rules[t] ? 'Rule on' : 'Rule off', t, app.rules[t] ? 'good' : 'warn'); } }))))];
     },
 
     revenue() {
@@ -247,8 +249,23 @@ export function createOps(s) {
     return h('div', { class: 'webapp', style: { flex: 1, minHeight: 0 } },
       h('aside', { class: 'side' }, h('div', { class: 'brand' }, mark('violet'), h('span', null, 'Easydrivess', h('small', null, 'Operations'))),
         NAV.map(([k, l, ic]) => h('button', { 'aria-pressed': String(ui.screen === k), onclick: () => ui.reset(k) }, icon(ic), h('span', { class: 'lbl' }, l), counts[k] ? h('span', { class: 'count' }, counts[k]) : null))),
-      h('div', { class: 'main' }, (pages[ui.screen] || pages.overview)()));
+      h('div', { class: 'main', style: { position: 'relative' } }, webBell(s, app, 'ops', 'ops'), (pages[ui.screen] || pages.overview)()),
+      app.toast && app.toast.until > performance.now() && webToast(app.toast.n));
   };
-  app.notifyKey = () => false;
+  app.notifyKey = n => n.app === 'ops' && ['alert', 'warn'].includes(n.tone);
   return app;
 }
+
+// Notification bell for the web consoles: unread LED, popover list, mark read.
+export function webBell(s, app, appId, to) {
+  const n = unread(s, appId, to); const list = inbox(s, appId, to).slice(0, 12);
+  return h('div', { style: { position: 'absolute', top: '22px', right: '26px', zIndex: 5 } },
+    h('button', { class: 'iconbtn', 'aria-label': `Notifications, ${n} unread`, onclick: () => { app.bellOpen = !app.bellOpen; app.ui.dirty(); } }, icon('bell'), n ? h('span', { class: 'badge-led' }, n > 9 ? '9+' : n) : null),
+    app.bellOpen && h('div', { class: 'bell-pop glass' },
+      h('div', { class: 'flex between', style: { marginBottom: '6px' } }, h('b', { style: { fontWeight: 600 } }, 'Notifications'), n ? h('button', { class: 'label', style: { color: 'var(--lavender)' }, onclick: () => markRead(s, appId, to) }, 'Read all') : null),
+      list.length ? list.map(x => h('button', { class: `notif ${x.read ? '' : 'unread'}`, onclick: () => markRead(s, appId, to, x.id) },
+        h('span', { class: 'ic', style: { color: x.tone === 'alert' ? 'var(--ember)' : x.tone === 'good' ? 'var(--aqua)' : x.tone === 'warn' ? 'var(--amber)' : 'var(--periwinkle)' } }, icon(x.tone === 'alert' ? 'sos' : x.kind === 'wallet' || x.kind === 'payout' ? 'wallet' : 'bell', 16)),
+        h('span', { class: 'grow' }, h('div', { class: 't', style: { fontWeight: 600, fontSize: '13.5px' } }, x.title), h('div', { class: 'small' }, x.body), h('div', { class: 'label' }, fmtTime(x.at)))))
+        : h('div', { class: 'label', style: { padding: '12px 2px' } }, 'Nothing yet.')));
+}
+export const webToast = n => h('div', { class: 'toast', style: { position: 'absolute', top: 'auto', bottom: '18px', left: 'auto', right: '18px', width: '320px' } }, h('span', { class: 'ic' }, icon('bell', 16)), h('div', null, h('b', null, n.title), h('span', null, n.body)));

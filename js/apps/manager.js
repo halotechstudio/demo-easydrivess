@@ -1,5 +1,7 @@
 import { h, icon, map, dotNumber, scrollNumber, sentence, topbar, adCard, btn, pill, tile, initials, carArt } from '../ui/kit.js';
-import { inr, fmtTime, IST } from '../engine/store.js';
+import { inr, fmtTime, IST, unread } from '../engine/store.js';
+import { adSheet } from './sheets.js';
+import { managerAccountScreens } from './manager-account.js';
 import { places } from '../engine/geo.js';
 import { planBatch } from '../engine/batching.js';
 import { bookBatch } from '../engine/rides.js';
@@ -21,9 +23,9 @@ export function createManager(s) {
   const wallet = () => st().wallets[app.company];
 
   function ad() {
-    if (app.adShown.home) { const a = st().ads.find(x => x.id === app.adShown.home && x.on); return adCard(a, () => recordClick(s, a.id)); }
+    if (app.adShown.home) { const a = st().ads.find(x => x.id === app.adShown.home && x.on); return a && adCard(a, () => adSheet(app, s, a)); }
     const a = pickAd(s, 'manager-home', 'mgr-' + app.company); if (!a) return null;
-    recordImpression(s, a.id, 'mgr-' + app.company); app.adShown.home = a.id; return adCard(a, () => recordClick(s, a.id));
+    recordImpression(s, a.id, 'mgr-' + app.company); app.adShown.home = a.id; return adCard(a, () => adSheet(app, s, a));
   }
 
   function when() {
@@ -49,7 +51,7 @@ export function createManager(s) {
       return [h('div', { class: 'scroll' },
         h('div', { class: 'flex between', style: { padding: '6px 2px 16px' } },
           h('div', null, h('p', { class: 'display' }, `${greet(st().now)},`, h('br'), h('span', { class: 'dim' }, co().manager.split(' ')[0])), h('div', { class: 'label mt8' }, `${co().name} · Admin`)),
-          h('button', { class: 'avatar lg' }, initials(co().manager))),
+          h('div', { class: 'flex', style: { gap: '8px' } }, bell(), h('button', { class: 'avatar lg', 'aria-label': 'Company settings', onclick: () => ui.reset('settings') }, initials(co().manager)))),
         h('div', { class: 'hero money' },
           h('div', { class: 'num-label' }, 'Company wallet'),
           h('div', { class: 'num-row' }, dotNumber('₹' + w.balance.toLocaleString('en-IN'), { size: 6.5, off: false })),
@@ -139,19 +141,6 @@ export function createManager(s) {
         tabbar('team')];
     },
 
-    wallet() {
-      const w = wallet(); const tx = st().ledger.filter(e => e.wallet === app.company).slice(0, 8);
-      return [topbar('Wallet', { menu: false }),
-        h('div', { class: 'scroll' },
-          h('div', { class: 'hero money' }, h('div', { class: 'num-label' }, 'Balance'), h('div', { class: 'num-row' }, dotNumber('₹' + w.balance.toLocaleString('en-IN'), { size: 6.5, off: false })),
-            sentence(['GST invoice monthly · ', { chip: co().gstin }])),
-          h('div', { class: 'flex mt12', style: { gap: '8px' } }, [10000, 25000, 50000].map(a => h('button', { class: 'btn dark', style: { flex: 1, padding: 0 }, onclick: () => topUp(s, app.company, a) }, `+${inr(a)}`))),
-          h('div', { class: 'card mt12' }, h('div', { class: 'card-head' }, h('h3', null, 'Transactions')),
-            tx.length ? tx.map(e => h('div', { class: 'row' }, h('span', { class: 'ic' }, icon(e.kind === 'topup' ? 'plus' : e.kind === 'refund' ? 'repeat' : 'car')), h('div', { class: 'grow' }, h('div', { class: 't' }, e.kind === 'topup' ? 'Money added' : e.kind === 'refund' ? 'Refund' : 'Rides booked'), h('div', { class: 's' }, `${fmtTime(e.at)} · ${e.note}`)), h('div', { class: 'strong', style: { color: e.kind === 'fare' ? 'var(--fg)' : 'var(--aqua)' } }, `${e.kind === 'fare' ? '−' : '+'}${inr(Math.abs(e.amount))}`)))
-              : h('div', { class: 'small' }, 'No transactions yet today.')),
-          h('div', { class: 'card mt12 flex between' }, h('div', { class: 'flex' }, h('span', { class: 'ic' }, icon('doc')), h('div', null, h('div', { style: { fontWeight: 500 } }, 'October 2026 invoice'), h('div', { class: 'label' }, 'GST · PDF · Excel'))), icon('upload'))),
-        tabbar('wallet')];
-    },
   };
 
   function rideRow(r) {
@@ -164,9 +153,14 @@ export function createManager(s) {
   }
 
   function tabbar(cur) {
-    return h('div', { class: 'tabbar' }, h('nav', null, [['home', 'home'], ['rides', 'route'], ['team', 'users'], ['wallet', 'wallet']].map(([k, ic]) => h('button', { 'aria-label': k, 'aria-pressed': String(cur === k), onclick: () => ui.reset(k) }, icon(ic)))));
+    return h('div', { class: 'tabbar' }, h('nav', null, [['home', 'home'], ['rides', 'route'], ['wallet', 'wallet'], ['settings', 'settings']].map(([k, ic]) => h('button', { 'aria-label': k, 'aria-pressed': String(cur === k), onclick: () => ui.reset(k) }, icon(ic)))));
   }
 
+  function bell() {
+    const n = unread(s, 'manager', app.company);
+    return h('button', { class: 'iconbtn', 'aria-label': `Notifications, ${n} unread`, style: { width: '48px', height: '48px' }, onclick: () => ui.go('inbox') }, icon('bell'), n ? h('span', { class: 'badge-led' }, n > 9 ? '9+' : n) : null);
+  }
+  Object.assign(screens, managerAccountScreens({ s, app, ui, co, staff, wallet, tabbar: (...a) => tabbar(...a) }));
   app.render = () => (screens[ui.screen] || screens.home)(ui.params);
   app.caption = () => `${co().manager} · ${co().name}`;
   app.notifyKey = n => n.app === 'manager' && n.to === app.company;

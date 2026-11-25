@@ -30,7 +30,7 @@ export function etaFor(s, cls, placeId) {
   return best;
 }
 
-export function driverCard(s, ride, { compact = false } = {}) {
+export function driverCard(s, ride, { compact = false, onCall, onChat } = {}) {
   const st = s.get(); const d = st.drivers.find(x => x.id === ride.driverId); if (!d) return null;
   const car = carOf(s, d.id); const cs = conditionScore(car, st.now);
   return h('div', { class: 'card' },
@@ -39,8 +39,8 @@ export function driverCard(s, ride, { compact = false } = {}) {
       h('div', { class: 'grow' },
         h('div', { style: { fontWeight: 600, fontSize: '16px' } }, d.name),
         h('div', { class: 'small flex', style: { gap: '6px' } }, icon('star', 13), `${d.rating} · ${d.trips.toLocaleString('en-IN')} rides`, h('span', { class: 'pill good', style: { padding: '1px 7px', fontSize: '10px' } }, 'Verified'))),
-      h('button', { class: 'iconbtn', 'aria-label': 'Chat' }, icon('chat')),
-      h('button', { class: 'iconbtn', 'aria-label': 'Call', style: { background: 'var(--aqua)', color: 'var(--ink)' } }, icon('phone'))),
+      h('button', { class: 'iconbtn', 'aria-label': 'Message driver', onclick: onChat }, icon('chat')),
+      h('button', { class: 'iconbtn', 'aria-label': 'Call driver', onclick: onCall, style: { background: 'linear-gradient(180deg,#7CF6D2,#3FD9AE)', color: 'var(--ink)' } }, icon('phone'))),
     h('div', { class: 'divider' }),
     h('div', { class: 'flex between' },
       h('div', null, h('div', { style: { fontSize: '14px', fontWeight: 500 } }, `${car.model}`), h('div', { class: 'label' }, `${car.color} · ${car.year}`)),

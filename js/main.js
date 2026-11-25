@@ -9,6 +9,8 @@ import { createWhatsApp } from './apps/whatsapp.js';
 import { createHotel } from './apps/hotel.js';
 import { createOps } from './apps/ops.js';
 import { SCENARIOS } from './scenarios.js';
+import { renderSheet } from './apps/sheets.js';
+import { decorate } from './ui/fx.js';
 
 // Sim seconds per real second at each speed. Ruling: "1×" is 15× real time so a ride plays in about two minutes.
 const SPEEDS = [['1×', 15], ['4×', 60], ['16×', 240]];
@@ -46,13 +48,22 @@ function phone(id) {
   const a = apps[id];
   const kids = a.render();
   const toast = a.toast && a.toast.until > performance.now() ? h('div', { class: 'toast' }, h('span', { class: 'ic' }, icon(a.toast.n.tone === 'alert' ? 'sos' : 'bell', 16)), h('div', null, h('b', null, a.toast.n.title), h('span', null, a.toast.n.body))) : null;
-  return h('div', { class: 'phone' }, h('div', { class: `screen${a.light ? ' light' : ''}` }, h('div', { class: 'island' }), statusBar(), toast, h('div', { class: 'app' }, kids), h('div', { class: 'home-ind' })));
+  // Entrance motion only when the screen actually changes, never on a live repaint.
+  const key = `${a.ui.screen}|${a.ui.params?.id || ''}|${a.ui.params?.tab || ''}|${a.view || ''}`;
+  if (a._key !== key) { a._key = key; a._enterAt = performance.now(); }
+  const since = Math.round(performance.now() - (a._enterAt || 0)); const enter = since < 900;
+  const el = h('div', { class: 'phone' }, h('div', { class: `screen ${id}-skin${a.light ? ' light' : ''}` }, h('div', { class: 'island' }), statusBar(), toast, h('div', { class: `app${enter ? ' enter' : ''}`, style: `--since:${since}` }, kids), renderSheet(a), h('div', { class: 'home-ind' })));
+  decorate(el);
+  return el;
 }
 
 function web(id, url) {
-  return h('div', { class: 'browser', style: { height: presenter.view === 'live' ? '760px' : 'calc(100vh - 120px)' } },
+  const a = apps[id]; const key = a.ui.screen;
+  if (a._key !== key) { a._key = key; a._enterAt = performance.now(); }
+  const since = Math.round(performance.now() - a._enterAt);
+  return h('div', { class: `browser${since < 900 ? ' enter' : ''}`, style: { height: presenter.view === 'live' ? '760px' : 'calc(100vh - 120px)', '--since': since } },
     h('div', { class: 'chrome' }, h('div', { class: 'lights' }, h('i'), h('i'), h('i')), h('div', { class: 'url' }, url)),
-    apps[id].render({ compact: presenter.view === 'live' && id === 'hotel' }));
+    apps[id].render({ compact: presenter.view === 'live' && id === 'hotel' }), renderSheet(apps[id], { web: true }));
 }
 
 // Re-render one mount, keeping scroll positions and skipping while the user types in it.
@@ -63,7 +74,7 @@ function paint(key, build) {
   if (m.querySelector('.dragging')) return; // never replace a swipe mid-drag
   const scrolls = {}; m.querySelectorAll('[data-key], .scroll, .main, .chat').forEach((el, i) => { scrolls[el.dataset.key || i] = el.scrollTop; });
   const chatAtBottom = [...m.querySelectorAll('.chat')].some(el => el.scrollHeight - el.scrollTop - el.clientHeight < 40);
-  m.replaceChildren(build());
+  const node = build(); decorate(node); m.replaceChildren(node);
   m.querySelectorAll('[data-key], .scroll, .main, .chat').forEach((el, i) => { const v = scrolls[el.dataset.key || i]; if (v != null) el.scrollTop = v; });
   if (chatAtBottom || !Object.keys(scrolls).length) m.querySelectorAll('.chat').forEach(el => { el.scrollTop = el.scrollHeight; });
 }
@@ -107,6 +118,7 @@ function layout() {
 }
 
 function renderAll() {
+  document.documentElement.style.setProperty('--clock', String(Math.round(performance.now())));
   apps.driver.sync(apps.rider);
   for (const [k] of PHONES) paint(k, () => phone(k));
   for (const [k, , url] of WEBS) paint(k, () => web(k, url));
@@ -124,7 +136,7 @@ function frame(t) {
     while (acc >= 1000) { tick(s, 1000); acc -= 1000; }
   }
   // Paint on change, and at 4 fps while anything moves.
-  const moving = s.get().rides.some(r => ['finding', 'arriving', 'arrived', 'onboard'].includes(r.status)) || Object.values(apps).some(a => a.animating?.());
+  const moving = s.get().rides.some(r => ['finding', 'arriving', 'arrived', 'onboard'].includes(r.status)) || Object.values(apps).some(a => a.animating?.() || a.call);
   if (frame.force || (dirty && t - lastPaint > 120) || (presenter.playing && moving && t - lastPaint > 250) || Object.values(apps).some(a => a.toast && a.toast.until < performance.now() && (a.toast = null, true))) {
     renderAll(); dirty = false; lastPaint = t; frame.force = false;
   } else if (t - lastPaint > 1000) { const c = document.getElementById('simclock'); if (c) c.textContent = fmtTime(s.get().now); }

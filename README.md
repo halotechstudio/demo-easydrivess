@@ -27,6 +27,13 @@ Open http://localhost:5190. Tests: `npm test` (engine, Node 24).
 6. **Ops**: change a rate in Pricing and Apply; onboard the waiting car (accept the photo pre-check, finish the manual checks, verify police papers, approve); publish an ad and watch it appear in the Rider app; Approve all payouts; handle an SOS (Scenarios → SOS on a live trip).
 7. **Scenarios → Shine Check needs a retake** to show the driver's 4-photo check and a one-photo retake.
 
+## Accounts, wallets and notifications
+- **Rider**: Easydrivess Money (add money by UPI, card or net banking; auto top-up; refunds land instantly), payment methods (wallet, UPI, card, cash), full profile and settings, trusted contacts, inbox.
+- **Driver**: Withdraw with amount, destination (UPI or bank) and speed (Instant ₹5, Standard free); each payout is tracked Requested, Approved, Sent, Credited with a UTR. Manage bank and UPI accounts, documents, preferences.
+- **Manager**: company wallet with UPI, net banking, card or bank transfer to the company's own account, auto top-up, team budgets, invoices, ride policy.
+- **Ops**: approve or return payouts; bell with unread count on Ops and the Hotel desk.
+- Every bell shows an unread LED; tapping a notification opens what it is about.
+
 ## Where things live
 - `js/engine/`: pricing and condition score, batching, dispatch and rides, wallet and payouts, ads, safety, WhatsApp chat flow, seed data.
 - `js/apps/`: one file per app. `js/ui/kit.js`: design-system components.

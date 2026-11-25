@@ -1,5 +1,9 @@
 import { h, icon, map, dotNumber, scrollNumber, sentence, topbar, adCard, btn, swipe, tickGauge, ring, pill, tile, initials } from '../ui/kit.js';
-import { inr, fmtTime, fmtClock } from '../engine/store.js';
+import { inr, fmtTime, fmtClock, unread } from '../engine/store.js';
+import { led } from '../ui/fx.js';
+import { callSheet, chatSheet, menuSheet, adSheet, flash } from './sheets.js';
+import { driverAccountScreens } from './driver-account.js';
+import { raiseAlert } from '../engine/safety.js';
 import { places } from '../engine/geo.js';
 import { conditionScore, classEligible } from '../engine/pricing.js';
 import { acceptOffer, declineOffer, verifyOtp, carOf, OFFER_MS } from '../engine/rides.js';
@@ -36,9 +40,9 @@ export function createDriver(s) {
 
   function ad(slot, key) {
     const k = `${slot}:${key}:${app.who}`;
-    if (app.adShown[k]) { const a = st().ads.find(x => x.id === app.adShown[k] && x.on); return adCard(a, () => recordClick(s, a.id)); }
+    if (app.adShown[k]) { const a = st().ads.find(x => x.id === app.adShown[k] && x.on); return a && adCard(a, () => adSheet(app, s, a)); }
     const a = pickAd(s, slot, app.who); if (!a) return null;
-    recordImpression(s, a.id, app.who); app.adShown[k] = a.id; return adCard(a, () => recordClick(s, a.id));
+    recordImpression(s, a.id, app.who); app.adShown[k] = a.id; return adCard(a, () => adSheet(app, s, a));
   }
 
   const screens = {
@@ -53,7 +57,7 @@ export function createDriver(s) {
         h('div', { class: 'scroll' },
           h('div', { class: 'flex between', style: { padding: '6px 2px 16px' } },
             h('div', { class: 'flex' }, h('div', { class: 'avatar lg violet' }, initials(d.name)), h('div', null, h('div', { style: { fontSize: '18px', fontWeight: 500 } }, `Hi, ${d.name.split(' ')[0]}`), h('div', { class: 'label flex', style: { gap: '5px' } }, icon('star', 12), `${d.rating} · ${c.model}`))),
-            h('span', { class: `pill ${d.online ? 'good' : ''}` }, h('span', { class: 'dot' }), d.online ? 'Online' : 'Offline')),
+            h('div', { class: 'flex', style: { gap: '8px' } }, h('span', { class: `pill ${d.online ? 'good' : ''}` }, led(d.online ? 'var(--aqua)' : '#555', d.online), d.online ? 'Online' : 'Offline'), bell())),
           due ? h('div', { class: 'hero alert' },
             h('div', { class: 'num-label' }, 'Shine Check due'),
             h('div', { class: 'num-row' }, dotNumber('40', { size: 9, off: false }), h('div', { style: { fontSize: '13px', color: 'var(--fg-2)', alignSelf: 'flex-end', marginLeft: '6px' } }, 'sec')),
@@ -78,9 +82,9 @@ export function createDriver(s) {
             sentence(['Withdraw any time. Up to ', { chip: '₹2,000' }, ' is sent instantly.'])),
           h('div', { class: 'card mt12' }, h('div', { class: 'card-head' }, h('h3', null, 'This week'), h('span', { class: 'label' }, inr(week.reduce((a, b) => a + b, 0)))),
             h('div', { class: 'bars', style: { height: '90px' } }, week.map((v, i) => h('div', { class: `b ${i === 6 ? 'hi' : ''}` }, h('i', { style: { height: `${Math.max(6, v / 2500 * 100)}%` } }), h('span', null, 'MTWTFSS'[i]))))),
-          h('div', { class: 'mt12' }, btn(`Withdraw ${inr(d.wallet)}`, { arrow: true, disabled: d.wallet < 100, onClick: () => requestPayout(s, d.id, d.wallet) })),
+          h('div', { class: 'mt12' }, btn(`Withdraw money`, { arrow: true, disabled: d.wallet < 100, onClick: () => { if (app.wd) app.wd.amount = null; ui.go('withdraw'); } })),
           h('div', { class: 'card mt12' }, h('div', { class: 'card-head' }, h('h3', null, 'Payouts')),
-            pays.length ? pays.map(p => h('div', { class: 'row' }, h('span', { class: 'ic' }, icon('money')), h('div', { class: 'grow' }, h('div', { class: 't' }, inr(p.amount)), h('div', { class: 's' }, `${p.to} · ${fmtTime(p.at)}`)), pill(p.status === 'paid' ? 'Paid' : 'Requested', p.status === 'paid' ? 'good' : 'warn')))
+            pays.length ? pays.map(p => h('button', { class: 'row', style: { width: '100%', textAlign: 'left' }, onclick: () => ui.go('payout', { id: p.id }) }, h('span', { class: 'ic' }, icon('money')), h('div', { class: 'grow' }, h('div', { class: 't' }, inr(p.amount)), h('div', { class: 's' }, `${p.to} · ${fmtTime(p.at)}`)), pill({ paid: 'Credited', processing: 'On its way', requested: 'Waiting approval', rejected: 'Returned' }[p.status], { paid: 'good', processing: 'violet', requested: 'warn', rejected: 'alert' }[p.status])))
               : h('div', { class: 'small' }, 'No payouts yet.')),
           h('div', { class: 'mt12' }, ad('driver-earnings', 'earn'))),
         tabbar('earnings')];
@@ -183,7 +187,8 @@ export function createDriver(s) {
           h('div', { class: 'grow' }, h('div', { class: 'label' }, r.status === 'arriving' ? 'Pick up' : next?.type === 'pickup' ? 'Next pickup' : 'Drop'), h('div', { style: { fontSize: '17px', fontWeight: 600 } }, placeName(target)), h('div', { class: 'small' }, nm)),
           h('div', { class: 'center' }, dotNumber(String(left), { size: 5, off: false }), h('div', { class: 'label' }, 'min'))),
         h('div', { class: 'card mt12' }, h('div', { class: 'card-head' }, h('h3', null, `Trip ${r.id}`), h('span', { class: 'label' }, `${r.km} km · ${inr(Math.round(r.fare * (1 - st().pricing.commission)))} for you`)), stopList(s, r)),
-        h('div', { class: 'flex mt12', style: { gap: '8px' } }, h('button', { class: 'btn dark', style: { flex: 1 } }, icon('phone', 18), 'Call rider'), h('button', { class: 'btn ember', style: { flex: 1 } }, icon('shield', 18), 'Emergency')))];
+        h('div', { class: 'flex mt12', style: { gap: '8px' } }, h('button', { class: 'btn dark', style: { flex: 1 }, onclick: () => callSheet(app, { name: nm, role: 'Your rider' }) }, icon('phone', 18), 'Call rider'), h('button', { class: 'btn ember', style: { flex: 1 }, onclick: () => emergency(r) }, icon('shield', 18), 'Emergency')),
+        h('button', { class: 'btn block mt8', style: { color: 'var(--fg-2)', height: '42px' }, onclick: () => chatSheet(app, s, r, 'driver') }, icon('chat', 17), 'Message rider'))];
   }
 
   function complete(r) {
@@ -197,7 +202,7 @@ export function createDriver(s) {
   }
 
   function tabbar(cur) {
-    return h('div', { class: 'tabbar' }, h('nav', null, [['home', 'home'], ['earnings', 'wallet'], ['car', 'car']].map(([k, ic]) => h('button', { 'aria-label': k, 'aria-pressed': String(cur === k), onclick: () => ui.reset(k) }, icon(ic)))));
+    return h('div', { class: 'tabbar' }, h('nav', null, [['home', 'home'], ['earnings', 'wallet'], ['car', 'car'], ['profile', 'user']].map(([k, ic]) => h('button', { 'aria-label': k, 'aria-pressed': String(cur === k), onclick: () => ui.reset(k) }, icon(ic)))));
   }
 
   app.render = () => (screens[ui.screen] || screens.home)(ui.params);
@@ -209,6 +214,18 @@ export function createDriver(s) {
       h('label', { class: 'flex', style: { gap: '6px' } }, h('button', { class: 'toggle', 'aria-pressed': String(app.follow), style: { transform: 'scale(.8)' }, onclick: e => { app.follow = !app.follow; e.currentTarget.setAttribute('aria-pressed', String(app.follow)); } }), 'Follow rider'));
   };
   app.notifyKey = n => n.app === 'driver' && n.to === app.who;
+  function bell() {
+    const n = unread(s, 'driver', app.who);
+    return h('button', { class: 'iconbtn', 'aria-label': `Notifications, ${n} unread`, onclick: () => ui.go('inbox') }, icon('bell'), n ? h('span', { class: 'badge-led' }, n > 9 ? '9+' : n) : null);
+  }
+  function emergency(r) {
+    menuSheet(app, 'Emergency', [
+      { label: 'Call the safety desk', icon: 'shield', sub: 'Answered 24×7 by Easydrivess', run: () => callSheet(app, { name: 'Easydrivess safety desk', role: 'Emergency line' }) },
+      { label: 'Call 112', icon: 'phone', sub: 'Police, fire, ambulance', run: () => callSheet(app, { name: 'Police · 112', role: 'Emergency services', number: '112' }) },
+      { label: 'Raise an alert on this trip', icon: 'sos', sub: 'Shares your live location with the desk', danger: true, run: () => { raiseAlert(s, r.id, 'sos', 'driver'); flash(app, 'Alert raised', 'The safety desk is calling you now.', 'alert'); } },
+    ]);
+  }
+  Object.assign(screens, driverAccountScreens({ s, app, ui, me, car, tabbar: (...a) => tabbar(...a) }));
   app.galleryScreens = () => [
     { title: 'Home · online', screen: 'home' },
     { title: 'Shine Check · capture', screen: 'home', before: () => { app._sh = app.shine; app.shine = { i: 1, t0: performance.now() - 600, done: ['front'], result: null }; }, after: () => { app.shine = app._sh; } },

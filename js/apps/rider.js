@@ -1,10 +1,12 @@
 import { h, icon, map, scrollNumber, dotNumber, sentence, topbar, adCard, btn, carArt, pill, initials, tile } from '../ui/kit.js';
-import { inr, fmtTime, IST } from '../engine/store.js';
+import { inr, fmtTime, IST, unread } from '../engine/store.js';
 import { places, placeList, route } from '../engine/geo.js';
 import { CLASSES, SEATS, BAGS, conditionScore } from '../engine/pricing.js';
 import { bookRide, estimate, cancelRide, rateRide, materialiseTemplates } from '../engine/rides.js';
 import { pickAd, recordImpression, recordClick } from '../engine/ads.js';
 import { charge } from '../engine/wallet.js';
+import { callSheet, chatSheet, shareSheet, menuSheet, adSheet, flash, openSheet, closeSheet } from './sheets.js';
+import { profileScreens, walletScreen, inboxScreen, payMethodSheet, payLabel, topUpSheet } from './rider-account.js';
 import { raiseAlert, closeAlert } from '../engine/safety.js';
 import { router, ACTIVE, placeName, etaFor, driverCard, stopList, mapForRide, greet } from './common.js';
 
@@ -23,20 +25,26 @@ export function createRider(s) {
   // Show an ad once per screen visit (impression counted once).
   function ad(slot, key) {
     const k = `${slot}:${key}`;
-    if (app.adShown[k]) return adCard(s.get().ads.find(a => a.id === app.adShown[k] && a.on), () => recordClick(s, app.adShown[k]));
+    if (app.adShown[k]) { const a = s.get().ads.find(x => x.id === app.adShown[k] && x.on); return a && adCard(a, () => adSheet(app, s, a)); }
     const a = pickAd(s, slot, app.who); if (!a) return null;
     recordImpression(s, a.id, app.who); app.adShown[k] = a.id;
-    return adCard(a, () => recordClick(s, a.id));
+    return adCard(a, () => adSheet(app, s, a));
   }
 
   function book(params, cls, fare) {
     const st = s.get();
     const company = work();
     // Work rides are paid from the company wallet first; no money, no booking.
-    if (company && charge(s, company, fare, 'work ride') !== 'ok') { app.err = `${st.companies.find(c => c.id === company).name} wallet is low. Ask your manager to add money, or switch to Personal.`; ui.dirty(); return; }
+    if (company && charge(s, company, fare, 'work ride', `Work ride · ${placeName(params.pickup)} to ${placeName(params.drop)}`) !== 'ok') { app.err = `${st.companies.find(c => c.id === company).name} wallet is low. Ask your manager to add money, or switch to Personal.`; ui.dirty(); return; }
+    // Personal rides: Easydrivess Money is charged up front; UPI and cash are settled at the end.
+    const method = company ? 'company' : me().payMethod;
+    if (method === 'wallet' && charge(s, app.who, fare, 'ride', `Ride · ${placeName(params.pickup)} to ${placeName(params.drop)}`) !== 'ok') {
+      app.err = `Easydrivess Money has ${inr(s.get().wallets[app.who].balance)}. Add money or pay by UPI.`; app.errAction = 'topup'; ui.dirty(); return;
+    }
+    app.errAction = null;
     app.err = null;
     // Round trips are priced as a package, so the fare is fixed rather than re-quoted per car.
-    const id = bookRide(s, { riderId: app.who, pickup: params.pickup, drop: params.drop, cls, trip: params.trip || 'city', channel: company ? 'corporate' : 'app', payer: company || 'self', at: params.at || null, flight: params.flight || null, fare, quoted: fare != null && !params.round });
+    const id = bookRide(s, { riderId: app.who, pickup: params.pickup, drop: params.drop, cls, trip: params.trip || 'city', channel: company ? 'corporate' : 'app', payer: company || (method === 'wallet' ? app.who : 'self'), method, at: params.at || null, flight: params.flight || null, fare, quoted: fare != null && !params.round });
     if (params.repeat) {
       const d = new Date((params.at || st.now) + IST);
       st.templates.push({ id: `T${st.templates.length + 1}`, riderId: app.who, pickup: params.pickup, drop: params.drop, cls, days: [1, 2, 3, 4, 5], time: `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`, payer: company || 'self', label: `${placeName(params.pickup)} to ${placeName(params.drop)}`, lastDay: null });
@@ -60,7 +68,12 @@ export function createRider(s) {
         h('div', { class: 'scroll', 'data-key': 'rider-home' },
           h('div', { class: 'flex between', style: { padding: '6px 2px 18px' } },
             h('div', null, h('p', { class: 'display' }, `${greet(st.now)},`, h('br'), h('span', { class: 'dim' }, r.name.split(' ')[0]))),
-            h('button', { class: 'avatar lg', onclick: () => ui.go('profile') }, initials(r.name))),
+            h('div', { class: 'flex', style: { gap: '8px' } },
+              bell(),
+              h('button', { class: 'avatar lg', 'aria-label': 'Profile', onclick: () => ui.reset('profile') }, initials(r.name)))),
+          !work() && s.get().wallets[app.who] && h('button', { class: 'card flex', style: { width: '100%', textAlign: 'left', gap: '12px', marginBottom: '10px', padding: '12px 14px' }, onclick: () => ui.reset('wallet') },
+            h('span', { class: 'ic' }, icon('wallet')), h('span', { class: 'grow' }, h('div', { class: 'label' }, 'Easydrivess Money'), h('div', { style: { fontWeight: 600, fontSize: '16px' } }, inr(s.get().wallets[app.who].balance))),
+            h('span', { class: 'btn dark sm', onclick: e => { e.stopPropagation(); topUpSheet(app, s, app.who); } }, icon('plus', 15), 'Add')),
           (r.company || r.workCompany) && h('div', { class: 'tabs-sm', style: { marginBottom: '12px' } },
             ['personal', 'work'].map(p => h('button', { 'aria-pressed': String(app.profile === p), onclick: () => { app.profile = p; ui.dirty(); } }, p === 'personal' ? 'Personal' : `Work · ${st.companies.find(c => c.id === (r.company || r.workCompany)).name}`))),
           next && h('div', { class: 'hero', style: { marginBottom: '10px' } },
@@ -178,9 +191,9 @@ export function createRider(s) {
           })),
           h('div', { class: 'card mt12', style: { padding: '4px 14px' } },
             h('div', { class: 'row' }, h('span', { class: 'ic' }, icon('clock')), h('div', { class: 'grow' }, h('div', { class: 't' }, p.at ? `Scheduled ${fmtTime(p.at)}` : 'Leave now'), p.repeat && h('div', { class: 's' }, 'Repeats every weekday'))),
-            h('div', { class: 'row' }, h('span', { class: 'ic' }, icon(company ? 'work' : 'wallet')), h('div', { class: 'grow' }, h('div', { class: 't' }, company ? `${st.companies.find(c => c.id === company).name} pays` : 'UPI · ananya@okhdfc'), h('div', { class: 's' }, company ? 'You pay ₹0' : 'Charged after the ride'))))),
+            h('button', { class: 'row', style: { width: '100%', textAlign: 'left' }, onclick: () => !company && payMethodSheet(app, s) }, h('span', { class: 'ic' }, icon(company ? 'work' : 'wallet')), h('div', { class: 'grow' }, h('div', { class: 't' }, company ? `${st.companies.find(c => c.id === company).name} pays` : payLabel(s, me()).title), h('div', { class: 's' }, company ? 'You pay ₹0' : payLabel(s, me()).sub)), !company && h('span', { class: 'label' }, 'Change')))),
         h('div', { class: 'dock' },
-          app.err && h('div', { class: 'card', style: { marginBottom: '8px', background: 'rgba(255,90,69,.12)' } }, h('div', { class: 'small', style: { color: '#FF8A78' } }, app.err)),
+          app.err && h('div', { class: 'card flex', style: { marginBottom: '8px', background: 'rgba(255,90,69,.12)', gap: '10px' } }, h('div', { class: 'small grow', style: { color: '#FF8A78' } }, app.err), app.errAction === 'topup' && h('button', { class: 'btn primary sm', onclick: () => topUpSheet(app, s, app.who, () => { app.err = null; ui.dirty(); }) }, 'Add money')),
           btn(`Book ${cls} · ${inr(e.fare)}`, { arrow: true, onClick: () => { app.pick = null; book(p, cls, e.fare); } }))];
     },
 
@@ -219,65 +232,71 @@ export function createRider(s) {
           h('div', { class: 'num-label', style: { margin: '6px 0 0' } }, 'min left'),
           sentence(['Tracked live by ', { chip: me().contact.name }, ' and the Easydrivess safety desk.']));
       }
-      return [topbar(r.status === 'onboard' ? 'On the trip' : r.status === 'finding' ? (r.at ? 'Scheduled' : 'Booking') : 'Your ride', { back: () => ui.reset('home'), menu: false, right: r.status !== 'finding' ? h('span', { class: 'pill good' }, r.status === 'onboard' ? 'On trip' : 'On time') : h('span') }),
+      return [topbar(r.status === 'onboard' ? 'On the trip' : r.status === 'finding' ? (r.at ? 'Scheduled' : 'Booking') : 'Your ride', { back: () => ui.reset('home'), menu: () => rideMenu(r) }),
         h('div', { class: 'scroll' },
           r.status === 'onboard' ? [map(m), h('div', { class: 'mt12' }, heroEl)] : [heroEl, h('div', { class: 'mt12' }, map(m))],
-          r.status !== 'finding' && h('div', { class: 'mt12' }, driverCard(s, r)),
+          r.status !== 'finding' && h('div', { class: 'mt12' }, driverCard(s, r, { onCall: () => callSheet(app, { name: s.get().drivers.find(d => d.id === r.driverId).name, role: 'Your driver' }), onChat: () => chatSheet(app, s, r, 'rider') })),
           r.status === 'arriving' && h('div', { class: 'card mt12 flex between' }, h('div', null, h('div', { style: { fontWeight: 600 } }, 'Ride OTP'), h('div', { class: 'label' }, 'Share only after you check the plate')), h('div', { class: 'otp' }, r.otp.split('').map(c => h('div', { class: 'd' }, dotNumber(c, { size: 4.5, off: false }))))),
           (r.stops.length > 0 || r.status === 'onboard') && h('div', { class: 'card mt12' }, h('div', { class: 'card-head' }, h('h3', null, r.stops.length ? 'Your route' : 'Trip')), stopList(s, r, { me: app.who })),
           r.status === 'finding' && h('div', { class: 'mt12' }, ad('rider-finding', r.id)),
-          h('div', { class: 'tiles mt12' }, tile('Fare', inr(r.fare), null), tile(r.payer === 'self' ? 'Payment' : 'Paid by', r.payer === 'self' ? 'UPI' : (st.companies.find(c => c.id === r.payer)?.name || 'Company'))),
+          h('div', { class: 'tiles mt12' }, tile('Fare', inr(r.fare), null), tile('Payment', payLabel(s, me(), r).short)),
           h('div', { class: 'flex mt12', style: { gap: '8px' } },
-            r.status === 'finding' || r.status === 'arriving' ? h('button', { class: 'btn dark', style: { flex: 1 }, onclick: () => cancelRide(s, r.id) }, 'Cancel ride') : h('button', { class: 'btn dark', style: { flex: 1 } }, icon('share', 18), 'Share trip'),
+            r.status === 'finding' || r.status === 'arriving' ? h('button', { class: 'btn dark', style: { flex: 1 }, onclick: () => cancelRide(s, r.id) }, 'Cancel ride') : h('button', { class: 'btn dark', style: { flex: 1 }, onclick: () => shareSheet(app, s, r, me()) }, icon('share', 18), 'Share trip'),
             r.status !== 'finding' && h('button', { class: 'btn ember', style: { flex: 1 }, onclick: () => raiseAlert(s, r.id, 'sos') }, icon('sos', 18), 'SOS')))];
     },
 
     trips() {
-      const list = myRides().filter(r => !ACTIVE.includes(r.status)).slice(0, 12);
-      return [topbar('My trips', { menu: false }),
+      const list = myRides().filter(r => !ACTIVE.includes(r.status)).slice(0, 14);
+      return [topbar('My trips'),
         h('div', { class: 'scroll' },
-          h('div', { class: 'card' }, list.length ? list.map(r => h('div', { class: 'row' }, h('span', { class: 'ic' }, icon(r.trip === 'airport' ? 'plane' : r.trip === 'intercity' ? 'route' : 'car')), h('div', { class: 'grow' }, h('div', { class: 't' }, `${placeName(r.pickup)} to ${placeName(r.drop)}`), h('div', { class: 's' }, `${r.status === 'scheduled' ? fmtTime(r.at) : r.status === 'cancelled' ? 'Cancelled' : 'Completed'} · ${r.cls}`)), h('div', { class: 'strong' }, inr(r.fare))))
+          h('div', { class: 'card', style: { padding: '2px 14px' } }, list.length ? list.map(r => h('button', { class: 'row', style: { width: '100%', textAlign: 'left' }, onclick: () => receipt(r) }, h('span', { class: 'ic' }, icon(r.trip === 'airport' ? 'plane' : r.trip === 'intercity' ? 'route' : 'car')), h('div', { class: 'grow' }, h('div', { class: 't' }, `${placeName(r.pickup)} to ${placeName(r.drop)}`), h('div', { class: 's' }, `${r.status === 'scheduled' ? fmtTime(r.at) : r.status === 'cancelled' ? 'Cancelled' : 'Completed ' + fmtTime(r.completedAt || r.createdAt)} · ${r.cls}`)), h('div', { class: 'strong' }, inr(r.fare))))
             : h('div', { class: 'small center', style: { padding: '24px 0' } }, 'Your trips will show here.')),
           h('div', { class: 'mt12' }, ad('rider-trips', 'trips'))),
         tabbar('trips')];
     },
-
-    safety() {
-      const r = me();
-      return [topbar('Safety', { menu: false }),
-        h('div', { class: 'scroll' },
-          h('p', { class: 'display', style: { fontSize: '30px', margin: '6px 0 16px' } }, 'Your safety,', h('br'), h('span', { class: 'dim' }, 'one tap away.')),
-          h('div', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', null, 'Trusted contact')), h('div', { class: 'row' }, h('div', { class: 'avatar' }, initials(r.contact.name)), h('div', { class: 'grow' }, h('div', { class: 't' }, r.contact.name), h('div', { class: 's' }, r.contact.phone)), pill('Gets live link', 'good'))),
-          h('div', { class: 'card mt12' }, h('div', { class: 'card-head' }, h('h3', null, 'On every ride')),
-            ['OTP before boarding', 'Verified drivers, police checked', 'Car condition checked daily', 'Route deviation alerts', 'Masked calls'].map(t => h('div', { class: 'row' }, h('span', { class: 'ic', style: { color: 'var(--aqua)' } }, icon('shieldcheck')), h('div', { class: 'grow t' }, t))))),
-        tabbar('safety')];
-    },
-
-    profile() {
-      const st = s.get(); const r = me();
-      const tpl = st.templates.filter(t => t.riderId === app.who);
-      return [topbar('Profile', { back: ui.back, menu: false }),
-        h('div', { class: 'scroll' },
-          h('div', { class: 'flex', style: { padding: '4px 0 16px' } }, h('div', { class: 'avatar lg violet' }, initials(r.name)), h('div', null, h('div', { style: { fontSize: '20px', fontWeight: 500 } }, r.name), h('div', { class: 'label' }, r.phone))),
-          h('div', { class: 'card' }, h('div', { class: 'card-head' }, h('h3', null, 'Saved places')), r.saved.map(x => h('div', { class: 'row' }, h('span', { class: 'ic' }, icon(x.label === 'Home' ? 'home' : x.label === 'Airport' ? 'plane' : 'work')), h('div', { class: 'grow' }, h('div', { class: 't' }, x.label), h('div', { class: 's' }, placeName(x.place)))))),
-          h('div', { class: 'card mt12' }, h('div', { class: 'card-head' }, h('h3', null, 'Repeating rides')), tpl.length ? tpl.map(t => h('div', { class: 'row' }, h('span', { class: 'ic' }, icon('repeat')), h('div', { class: 'grow' }, h('div', { class: 't' }, t.label), h('div', { class: 's' }, `Weekdays · ${t.time} · ${t.cls}`)), pill('On', 'good'))) : h('div', { class: 'small' }, 'None yet.'))),
-        tabbar('profile')];
-    },
   };
 
+  function receipt(r) {
+    const st = s.get(); const d = st.drivers.find(x => x.id === r.driverId); const car = st.cars.find(c => c.id === r.carId);
+    openSheet(app, { title: inr(r.fare), sub: `${placeName(r.pickup)} to ${placeName(r.drop)} · ${r.cls}`, body: () => [
+      h('div', { class: 'card', style: { padding: '2px 14px' } },
+        [['Status', r.status === 'completed' ? 'Completed' : r.status[0].toUpperCase() + r.status.slice(1)], ['Booked', fmtTime(r.createdAt)], ['Driver', d ? `${d.name} · ${car.plate}` : '—'], ['Distance', `${r.km} km`], ['Paid with', payLabel(s, me(), r).title], ['Ride ID', r.id]].map(([k, v]) => h('div', { class: 'set' }, h('div', { class: 'grow' }, h('small', null, k)), h('b', { style: { fontWeight: 500 } }, v)))),
+      h('div', { class: 'flex mt12', style: { gap: '8px' } },
+        h('button', { class: 'btn dark', style: { flex: 1 }, onclick: () => { closeSheet(app); flash(app, 'Receipt emailed', `Sent to ${me().email}.`); } }, icon('doc', 17), 'Email receipt'),
+        h('button', { class: 'btn dark', style: { flex: 1 }, onclick: () => { closeSheet(app); ui.reset('help', { rideId: r.id }); } }, icon('chat', 17), 'Get help')),
+    ] });
+  }
+
+  function rideMenu(r) {
+    menuSheet(app, 'Ride options', [
+      { label: 'Share trip', icon: 'share', run: () => shareSheet(app, s, r, me()) },
+      r.driverId && { label: 'Message driver', icon: 'chat', run: () => chatSheet(app, s, r, 'rider') },
+      { label: 'Safety centre', icon: 'shield', sub: 'SOS, trusted contacts, 112', run: () => ui.go('safety') },
+      { label: 'Report a problem', icon: 'flag', run: () => ui.go('help', { rideId: r.id }) },
+      ['finding', 'arriving', 'scheduled'].includes(r.status) && { label: 'Cancel ride', icon: 'close', sub: 'Free before the driver arrives', danger: true, run: () => cancelRide(s, r.id) },
+    ].filter(Boolean));
+  }
+
+  function bell() {
+    const n = unread(s, 'rider', app.who);
+    return h('button', { class: 'iconbtn', 'aria-label': `Notifications, ${n} unread`, style: { width: '48px', height: '48px' }, onclick: () => ui.go('inbox') }, icon('bell'), n ? h('span', { class: 'badge-led' }, n > 9 ? '9+' : n) : null);
+  }
+
+  const ctx = { s, app, ui, me, myRides, tabbar: (...a) => tabbar(...a), work, here };
+  Object.assign(screens, profileScreens(ctx), { wallet: () => walletScreen(ctx), inbox: () => inboxScreen(ctx) });
   const estimateRoute = p => route(p.pickup, p.drop).points;
 
   function complete(r) {
     const st = s.get(); const d = st.drivers.find(x => x.id === r.driverId);
     const rated = app.rate?.[r.id] || {};
     const fin = () => { rateRide(s, r.id, { stars: rated.stars || 5, clean: rated.clean ?? true }); ui.reset('home'); };
-    return [topbar('', { back: fin, menu: false, right: h('span', { class: 'pill violet' }, r.payer === 'self' ? 'Paid by UPI' : 'Paid by company') }),
+    return [topbar('', { back: fin, menu: false, right: h('span', { class: 'pill violet' }, payLabel(s, me(), r).short) }),
       h('div', { class: 'scroll' },
         h('p', { class: 'display', style: { margin: '0 0 14px' } }, 'You', h('br'), h('span', { class: 'dim' }, 'arrived.')),
         h('div', { class: 'hero money' },
-          h('div', { class: 'num-label' }, r.payer === 'self' ? 'Fare' : 'You pay'),
-          h('div', { class: 'num-row' }, dotNumber(r.payer === 'self' ? '₹' + r.fare : '₹0', { size: 9, off: false })),
-          sentence([`${r.cls} · ${r.km} km. `, r.payer === 'self' ? '' : { chip: `${inr(r.fare)} paid by company` }])),
+          h('div', { class: 'num-label' }, r.method === 'company' ? 'You pay' : r.method === 'cash' ? 'Pay the driver in cash' : 'Fare'),
+          h('div', { class: 'num-row' }, dotNumber(r.method === 'company' ? '₹0' : '₹' + r.fare, { size: 9, off: false })),
+          sentence([`${r.cls} · ${r.km} km. `, { chip: payLabel(s, me(), r).done }])),
         h('div', { class: 'card mt12' },
           h('div', { class: 'card-head' }, h('h3', null, `Rate ${d.name.split(' ')[0]}`)),
           h('div', { class: 'flex', style: { gap: '6px' } }, [1, 2, 3, 4, 5].map(n => h('button', { 'aria-label': `${n} stars`, style: { color: (rated.stars || 0) >= n ? 'var(--amber)' : 'var(--fg-3)' }, onclick: () => { app.rate = { ...app.rate, [r.id]: { ...rated, stars: n } }; ui.dirty(); } }, icon('star', 30)))),
@@ -296,13 +315,13 @@ export function createRider(s) {
         h('p', { class: 'display', style: { margin: '4px 0 14px' } }, 'Help is', h('br'), h('span', { class: 'dim' }, 'on the way.')),
         h('div', { class: 'hero alert' }, h('div', { class: 'num-label' }, 'Stay on this screen. Your live location is shared.'),
           h('div', { class: 'stops' }, a.timeline.map(t => h('div', { class: 'stop done' }, h('span', { class: 'n' }, icon('check', 12)), h('div', null, h('div', { class: 't' }, t.text), h('div', { class: 's' }, fmtTime(t.at))), h('span'))))),
-        h('div', { class: 'mt12' }, btn('Call 112 · Police', { kind: 'violet', ic: 'phone', onClick: () => {} })),
+        h('div', { class: 'mt12' }, btn('Call 112 · Police', { kind: 'violet', ic: 'phone', onClick: () => callSheet(app, { name: 'Police · 112', role: 'Emergency services', number: '112' }) })),
         h('div', { class: 'mt8' }, btn("I'm safe now · close alert", { kind: 'dark', onClick: () => closeAlert(s, a.id) })))];
   }
 
   function tabbar(cur) {
     return h('div', { class: 'tabbar' }, h('nav', null,
-      [['home', 'home'], ['trips', 'clock'], ['safety', 'shield'], ['profile', 'user']].map(([k, ic]) => h('button', { 'aria-label': k, 'aria-pressed': String(cur === k), onclick: () => ui.reset(k) }, icon(ic)))));
+      [['home', 'home'], ['trips', 'clock'], ['wallet', 'wallet'], ['profile', 'user']].map(([k, ic]) => h('button', { 'aria-label': k, 'aria-pressed': String(cur === k), onclick: () => ui.reset(k) }, icon(ic)))));
   }
 
   app.render = () => {

@@ -5,8 +5,8 @@ import { places, distanceKm, route } from '../js/engine/geo.js';
 import { seed } from '../js/engine/seed.js';
 import { conditionScore, quote, classEligible, DAY } from '../js/engine/pricing.js';
 import { planBatch } from '../js/engine/batching.js';
-import { bookRide, tick, acceptOffer } from '../js/engine/rides.js';
-import { topUp, charge, requestPayout, approvePayouts } from '../js/engine/wallet.js';
+import { bookRide, tick, acceptOffer, cancelRide } from '../js/engine/rides.js';
+import { topUp, charge, requestPayout, approvePayouts, rejectPayout } from '../js/engine/wallet.js';
 import { pickAd, recordImpression } from '../js/engine/ads.js';
 import { waHandle } from '../js/engine/whatsapp.js';
 
@@ -142,12 +142,48 @@ test('wallet blocks a charge it cannot cover, with no ledger entry', () => {
 test('payouts auto-approve small requests and approve all on request', () => {
   const s = fresh();
   const d = s.get().drivers[0]; d.wallet = 5000;
-  const small = requestPayout(s, d.id, 1500);
-  const big = requestPayout(s, d.id, 3000);
-  assert.equal(s.get().payouts.find(p => p.id === small).status, 'paid');
-  assert.equal(s.get().payouts.find(p => p.id === big).status, 'requested');
+  const small = requestPayout(s, d.id, 1500, { speed: 'instant' }).id;
+  const big = requestPayout(s, d.id, 3000, { speed: 'standard' }).id;
+  const P = id => s.get().payouts.find(p => p.id === id);
+  assert.equal(P(small).status, 'processing');
+  assert.equal(P(big).status, 'requested');
+  assert.equal(d.wallet, 5000 - 1505 - 3000);
+  tick(s, 120e3);
+  assert.equal(P(small).status, 'paid'); assert.match(P(small).utr, /^UTR \d{12}$/);
   approvePayouts(s, 'all');
-  assert.equal(s.get().payouts.find(p => p.id === big).status, 'paid');
+  assert.equal(P(big).status, 'processing');
+  for (let i = 0; i < 25; i++) tick(s, 300e3);
+  assert.equal(P(big).status, 'paid');
+});
+
+test('withdrawals are validated: minimum, balance and fee', () => {
+  const s = fresh(); const d = s.get().drivers[0]; d.wallet = 600;
+  assert.match(requestPayout(s, d.id, 50).error, /Minimum/);
+  assert.match(requestPayout(s, d.id, 600, { speed: 'instant' }).error, /fee/);
+  assert.ok(requestPayout(s, d.id, 600, { speed: 'standard' }).id);
+  assert.equal(d.wallet, 0);
+});
+
+test('a rejected withdrawal returns the money', () => {
+  const s = fresh(); const d = s.get().drivers[0]; d.wallet = 5000;
+  const id = requestPayout(s, d.id, 3000, { speed: 'standard' }).id;
+  rejectPayout(s, id);
+  assert.equal(d.wallet, 5000);
+});
+
+test('auto top-up covers a charge the balance cannot', () => {
+  const s = fresh(); const w = s.get().wallets.r1; w.balance = 100; w.auto = { on: true, below: 200, amount: 500 };
+  assert.equal(charge(s, 'r1', 450, 'x'), 'ok');
+  assert.ok(w.balance >= 200);
+});
+
+test('paying from the rider wallet refunds on cancel', () => {
+  const s = fresh(); const w = s.get().wallets.r1; const b = w.balance;
+  charge(s, 'r1', 300, 'x');
+  const id = bookRide(s, { riderId: 'r1', pickup: 'jubilee', drop: 'hitec', cls: 'Sedan', trip: 'city', payer: 'r1', fare: 300, quoted: true });
+  assert.equal(s.get().rides.find(r => r.id === id).method, 'wallet');
+  cancelRide(s, id);
+  assert.equal(w.balance, b);
 });
 
 test('ads never show on safety or payment screens and cap at 3 a day', () => {

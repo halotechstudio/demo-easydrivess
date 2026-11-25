@@ -3,6 +3,7 @@ import { inr, fmtTime } from '../engine/store.js';
 import { estimate, bookRide, setFlightDelay, cancelRide } from '../engine/rides.js';
 import { charge } from '../engine/wallet.js';
 import { router, placeName, ACTIVE } from './common.js';
+import { webBell, webToast } from './ops.js';
 
 // Hotel front desk: guest transfers in three clicks (guest → car → book), billed to the room.
 export function createHotel(s) {
@@ -79,7 +80,8 @@ export function createHotel(s) {
     h('aside', { class: 'side' },
       h('div', { class: 'brand' }, mark('violet'), h('span', null, 'Easydrivess', h('small', null, hotel().desk))),
       [['arrivals', 'Transfers', 'plane'], ['billing', 'Billing', 'doc']].map(([k, l, ic]) => h('button', { 'aria-pressed': String(ui.screen === k), onclick: () => ui.reset(k), title: l }, icon(ic), h('span', { class: 'lbl' }, l)))),
-    h('div', { class: 'main' }, (pages[ui.screen] || pages.arrivals)()));
-  app.notifyKey = () => false;
+    h('div', { class: 'main', style: { position: 'relative' } }, webBell(s, app, 'hotel', app.hotel), (pages[ui.screen] || pages.arrivals)()),
+    app.toast && app.toast.until > performance.now() && webToast(app.toast.n));
+  app.notifyKey = n => n.app === 'hotel' && n.to === app.hotel;
   return app;
 }

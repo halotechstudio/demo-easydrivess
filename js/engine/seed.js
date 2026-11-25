@@ -79,6 +79,16 @@ export function seed(s) {
   }));
   // Ananya works at Orbit too: Personal and Work profiles in one app.
   st.riders.find(r => r.id === 'r1').workCompany = 'orbit';
+  for (const r of st.riders) {
+    r.email = `${r.name.split(' ')[0].toLowerCase()}.${r.name.split(' ').slice(-1)[0].toLowerCase()}@${r.company ? r.company + '.in' : 'gmail.com'}`;
+    r.contacts = [{ id: 'c1', name: r.contact.name, phone: r.contact.phone, auto: true }];
+    r.payMethod = r.company ? 'company' : 'wallet';
+    r.upi = [`${r.name.split(' ')[0].toLowerCase()}@okhdfc`];
+    r.cards = r.id === 'r1' ? [{ id: 'k1', brand: 'Visa', last4: '4021', exp: '08/29' }] : [];
+    r.prefs = { ac: true, quiet: false, music: 'Driver\'s choice', cls: 'Sedan', womenDriver: false, pet: false, luggage: false, nightShare: true, language: 'English',
+      notify: { rides: true, wallet: true, promos: true, whatsapp: true, email: true } };
+    r.since = 'March 2025'; r.trips = 40 + r.id.charCodeAt(1) * 3;
+  }
 
   st.hotels = [
     { id: 'taj', name: 'Taj Krishna', place: 'taj', desk: 'Front desk · Banjara Hills', guests: [
@@ -96,10 +106,35 @@ export function seed(s) {
     taj: { id: 'taj', label: 'Taj Krishna (monthly bill)', balance: 0, postpaid: true },
     ops: { id: 'ops', label: 'Easydrivess', balance: 0 },
   };
-  st.ledger = [];
+  st.wallets.orbit.auto = { on: false, below: 5000, amount: 25000, method: 'Net banking' };
+  st.wallets.acme.auto = { on: false, below: 5000, amount: 10000, method: 'UPI' };
+  st.wallets.orbit.va = { bank: 'ICICI Bank', account: 'EASYD0RBIT0001', ifsc: 'ICIC0000104' };
+  st.budgets = { orbit: [{ team: 'Engineering', limit: 30000, spent: 18420 }, { team: 'Design', limit: 8000, spent: 2310 }, { team: 'Finance', limit: 6000, spent: 4870 }, { team: 'Sales', limit: 12000, spent: 3150 }, { team: 'HR', limit: 5000, spent: 960 }, { team: 'Product', limit: 7000, spent: 2240 }] };
+  st.policies = { orbit: { classes: ['Hatchback', 'Sedan', 'SUV'], maxFare: 1500, approvalAbove: 1000, nightRule: true, shareByDefault: true, weekendRides: false } };
+  // Easydrivess Money: a personal wallet for each public rider.
+  for (const [id, bal] of [['r1', 1250], ['r2', 420], ['r3', 0], ['r4', 860], ['r5', 150]]) {
+    st.wallets[id] = { id, label: 'Easydrivess Money', balance: bal, personal: true, low: 200, auto: { on: false, below: 200, amount: 500, method: 'UPI' } };
+  }
+  st.ledger = [
+    { id: 'L-r1-1', at: now - 26 * H, kind: 'topup', ref: 'r1', amount: 1000, wallet: 'r1', note: 'Added by UPI' },
+    { id: 'L-r1-2', at: now - 25 * H, kind: 'fare', ref: 'R0870', amount: 236, wallet: 'r1', note: 'Ride · HITEC City to Jubilee Hills' },
+    { id: 'L-r1-3', at: now - 50 * H, kind: 'refund', ref: 'R0841', amount: 186, wallet: 'r1', note: 'Ride cancelled before pickup' },
+    { id: 'L-r1-4', at: now - 74 * H, kind: 'cashback', ref: 'A1', amount: 50, wallet: 'r1', note: 'Kaveri Bank card offer' },
+    { id: 'L-o-1', at: now - 20 * H, kind: 'topup', ref: 'orbit', amount: 25000, wallet: 'orbit', note: 'Added by Net banking' },
+    { id: 'L-o-2', at: now - 15 * H, kind: 'fare', ref: 'B0711', amount: 1840, wallet: 'orbit', note: 'Evening drop · 6 cars' },
+  ];
+  for (const d of st.drivers) {
+    const first = d.name.split(' ')[0].toLowerCase();
+    d.accounts = [
+      { id: `${d.id}-u`, kind: 'upi', label: `${first}@okaxis`, primary: true, verified: true },
+      { id: `${d.id}-b`, kind: 'bank', label: `${['HDFC', 'SBI', 'ICICI', 'Axis', 'Kotak'][d.id.charCodeAt(2) % 5]} Bank ••${String(4100 + d.id.charCodeAt(2) * 7).slice(-4)}`, ifsc: 'HDFC0001234', holder: d.name, primary: false, verified: true },
+    ];
+    d.prefs = { airport: true, intercity: d.id !== 'd05', maxPickupKm: 6, women: false, autopilot: true, notifications: { rides: true, payouts: true, promos: false } };
+  }
   st.payouts = [
-    { id: 'P0001', driverId: 'd03', amount: 2650, to: 'srinivas@okicici', status: 'requested', at: now - 0.6 * H },
-    { id: 'P0002', driverId: 'd11', amount: 1980, to: 'HDFC ••4577', status: 'paid', at: now - 14 * H },
+    { id: 'P0001', driverId: 'd03', amount: 2650, fee: 0, speed: 'standard', to: 'srinivas@okaxis', toKind: 'upi', status: 'requested', at: now - 0.6 * H, steps: { requested: now - 0.6 * H } },
+    { id: 'P0002', driverId: 'd11', amount: 1980, fee: 5, speed: 'instant', to: 'HDFC Bank ••4577', toKind: 'bank', status: 'paid', at: now - 14 * H, how: 'auto', utr: 'UTR 418829310057', steps: { requested: now - 14 * H, approved: now - 14 * H, sent: now - 14 * H, paid: now - 13.97 * H } },
+    { id: 'P0003', driverId: 'd01', amount: 1500, fee: 5, speed: 'instant', to: 'ravi@okaxis', toKind: 'upi', status: 'paid', at: now - 22 * H, how: 'auto', utr: 'UTR 418822014731', steps: { requested: now - 22 * H, approved: now - 22 * H, sent: now - 22 * H, paid: now - 21.97 * H } },
   ];
 
   st.ads = [

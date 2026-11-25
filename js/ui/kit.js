@@ -12,7 +12,7 @@ export function h(tag, attrs, ...kids) {
     if (v == null || v === false) continue;
     if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2).toLowerCase(), v);
     else if (k === 'class') el.setAttribute('class', v);
-    else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+    else if (k === 'style' && typeof v === 'object') for (const [sk, sv] of Object.entries(v)) { if (sk.startsWith('--')) el.style.setProperty(sk, sv); else el.style[sk] = sv; }
     else if (k === 'html') el.innerHTML = v;
     else el.setAttribute(k, v === true ? '' : v);
   }
@@ -166,10 +166,10 @@ export function tickGauge(value, { size = 150, ticks = 64, color = 'var(--aqua)'
     const a = (startDeg + sweep * i / ticks - 90) * Math.PI / 180;
     const lit = i < on;
     const fade = lit ? .45 + .55 * (i / Math.max(1, on)) : 1;
-    lines.push(h('line', { x1: c + Math.cos(a) * r2, y1: c + Math.sin(a) * r2, x2: c + Math.cos(a) * r1, y2: c + Math.sin(a) * r1, stroke: lit ? color : 'rgba(255,255,255,.12)', 'stroke-width': size > 120 ? 2.2 : 1.8, 'stroke-linecap': 'round', opacity: lit ? fade : 1 }));
+    lines.push(h('line', { x1: c + Math.cos(a) * r2, y1: c + Math.sin(a) * r2, x2: c + Math.cos(a) * r1, y2: c + Math.sin(a) * r1, stroke: lit ? color : 'rgba(255,255,255,.12)', 'stroke-width': size > 120 ? 2.2 : 1.8, 'stroke-linecap': 'round', opacity: lit ? fade : 1, style: `--i:${i}`, filter: lit && i === on - 1 ? 'drop-shadow(0 0 3px currentColor)' : null }));
   }
   return h('div', { style: { position: 'relative', width: size + 'px', height: size + 'px', flex: 'none' } },
-    h('svg', { viewBox: `0 0 ${size} ${size}`, width: size, height: size }, lines),
+    h('svg', { class: 'tick-gauge', viewBox: `0 0 ${size} ${size}`, width: size, height: size, style: { color } }, lines),
     h('div', { style: { position: 'absolute', inset: 0, display: 'grid', placeContent: 'center', textAlign: 'center' } },
       inner ?? h('div', { style: { fontSize: size > 120 ? '34px' : '20px', fontWeight: 300, letterSpacing: '-.02em', lineHeight: 1 } }, Math.round(value)),
       label && h('div', { style: { fontSize: size > 120 ? '12.5px' : '10.5px', color: 'var(--fg-2)', marginTop: '4px' } }, label),
@@ -238,7 +238,8 @@ export function topbar(title, { back, menu, right } = {}) {
   return h('div', { class: 'topbar' },
     back ? h('button', { class: 'iconbtn', 'aria-label': 'Back', onclick: back }, icon('back')) : h('span'),
     h('h1', null, title),
-    right || (menu !== false ? h('button', { class: 'iconbtn', 'aria-label': 'More', onclick: menu || null }, icon('more')) : h('span')));
+    // The ⋮ button only appears when a screen has a real menu behind it.
+    right || (typeof menu === 'function' ? h('button', { class: 'iconbtn', 'aria-label': 'More options', onclick: menu }, icon('more')) : h('span')));
 }
 export function tile(k, v, unit, extra) { return h('div', { class: 'tile' }, h('div', { class: 'v' }, v, unit && h('small', null, unit)), h('div', { class: 'k' }, k), extra); }
 export function adCard(ad, onClick) {

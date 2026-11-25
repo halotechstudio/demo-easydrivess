@@ -1,0 +1,134 @@
+/* ============ Living background ============ */
+/* Infinite animations resume from the live clock (--clock, set every paint) so re-renders never make them jump. */
+.phase { animation-delay: calc(var(--clock, 0) * -1ms) !important; }
+
+body { background: #07070A; }
+body::before {
+  content: ''; position: fixed; inset: -20%; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(38% 32% at 22% 28%, rgba(98, 70, 234, .16), transparent 70%),
+    radial-gradient(30% 28% at 78% 64%, rgba(46, 150, 190, .09), transparent 70%),
+    radial-gradient(34% 30% at 60% 18%, rgba(143, 140, 242, .08), transparent 70%);
+  animation: drift 48s ease-in-out infinite alternate;
+}
+.screen { background: var(--ink); isolation: isolate; }
+.screen::before {
+  content: ''; position: absolute; inset: -25%; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(42% 30% at 18% 22%, rgba(98, 70, 234, .26), transparent 72%),
+    radial-gradient(36% 26% at 86% 58%, rgba(70, 170, 200, .12), transparent 72%),
+    radial-gradient(40% 30% at 40% 92%, rgba(143, 140, 242, .14), transparent 72%);
+  animation: drift 36s ease-in-out infinite alternate;
+  animation-delay: calc(var(--clock, 0) * -1ms);
+}
+.screen.driver-skin::before { background: radial-gradient(42% 30% at 20% 24%, rgba(46, 190, 150, .18), transparent 72%), radial-gradient(36% 28% at 84% 70%, rgba(98, 70, 234, .18), transparent 72%), radial-gradient(40% 30% at 50% 100%, rgba(94, 242, 198, .07), transparent 72%); }
+.screen.manager-skin::before { background: radial-gradient(42% 30% at 80% 18%, rgba(143, 140, 242, .24), transparent 72%), radial-gradient(36% 28% at 14% 66%, rgba(98, 70, 234, .16), transparent 72%), radial-gradient(40% 30% at 60% 100%, rgba(233, 232, 251, .06), transparent 72%); }
+.browser .main { background: radial-gradient(60% 50% at 12% 0%, rgba(98, 70, 234, .10), transparent 60%), radial-gradient(50% 40% at 100% 100%, rgba(70, 170, 200, .06), transparent 60%); }
+@keyframes drift {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
+  33% { transform: translate3d(4%, -3%, 0) rotate(8deg) scale(1.06); }
+  66% { transform: translate3d(-3%, 4%, 0) rotate(-6deg) scale(.97); }
+  100% { transform: translate3d(2%, 2%, 0) rotate(4deg) scale(1.03); }
+}
+
+/* ============ Frosted glass with a lit edge ============ */
+.glass, .card, .tile, .classes .cls, .searchbar, .saved button, .choice, .tabbar nav, .toast, .sheet, .panel, .tabs-sm button, .iconbtn, .hero, .btn.dark, .keypad button, .otp .d, .qr button, .waclass button, .msg.bot {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, rgba(34, 34, 46, .62), rgba(20, 20, 28, .58)) padding-box,
+    linear-gradient(150deg, rgba(255, 255, 255, .30), rgba(255, 255, 255, .06) 28%, rgba(255, 255, 255, .02) 62%, rgba(255, 255, 255, .16)) border-box;
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  backdrop-filter: blur(22px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), 0 12px 28px -18px rgba(0, 0, 0, .8);
+}
+/* Selected and primary states keep their fills, with the same lit edge. */
+.choice[aria-pressed="true"], .tabs-sm button[aria-pressed="true"] { background: linear-gradient(180deg, #F1F0FF, #DCDAF7) padding-box, linear-gradient(150deg, #fff, rgba(255, 255, 255, .4)) border-box; color: var(--ink); }
+.classes .cls[aria-pressed="true"] { background: linear-gradient(180deg, rgba(98, 70, 234, .28), rgba(60, 40, 170, .18)) padding-box, linear-gradient(150deg, rgba(185, 174, 255, .9), rgba(143, 140, 242, .25) 40%, rgba(185, 174, 255, .6)) border-box; box-shadow: 0 0 0 0 transparent, 0 18px 40px -20px rgba(98, 70, 234, .8); }
+.hero { background: linear-gradient(180deg, rgba(28, 28, 38, .7), rgba(16, 16, 22, .72)) padding-box, linear-gradient(150deg, rgba(255, 255, 255, .34), rgba(255, 255, 255, .05) 30%, rgba(255, 255, 255, .02) 60%, rgba(255, 255, 255, .2)) border-box; }
+.panel { background: linear-gradient(180deg, rgba(30, 30, 40, .62), rgba(18, 18, 25, .6)) padding-box, linear-gradient(150deg, rgba(255, 255, 255, .22), rgba(255, 255, 255, .04) 30%, rgba(255, 255, 255, .02) 65%, rgba(255, 255, 255, .12)) border-box; }
+.btn.primary { background: linear-gradient(180deg, #F5F4FF, #DEDCF8); box-shadow: inset 0 1px 0 #fff, 0 10px 26px -12px rgba(233, 232, 251, .45); }
+.btn.violet { background: linear-gradient(180deg, #7A62F4, #5638DE); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 12px 30px -12px rgba(98, 70, 234, .9); }
+.tabbar button[aria-pressed="true"] { background: linear-gradient(180deg, #F5F4FF, #DCDAF7); box-shadow: inset 0 1px 0 #fff, 0 6px 16px -6px rgba(233, 232, 251, .5); }
+.iconbtn.ghost { background: transparent; border-color: transparent; box-shadow: none; backdrop-filter: none; }
+/* A slow specular sweep across glass surfaces that float over content. */
+.tabbar nav, .toast, .sheet, .hero { overflow: hidden; }
+.tabbar nav::after, .sheet::after, .toast::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, .10) 48%, transparent 60%);
+  transform: translateX(-120%); animation: sheen 7s ease-in-out infinite; animation-delay: calc(var(--clock, 0) * -1ms);
+}
+.tabbar nav { position: relative; }
+@keyframes sheen { 0%, 70% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
+
+/* ============ LEDs ============ */
+.led { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; background: var(--c, var(--aqua)); box-shadow: 0 0 6px 1px var(--c, var(--aqua)), 0 0 14px 2px color-mix(in srgb, var(--c, var(--aqua)) 45%, transparent); }
+.led.pulse { animation: ledpulse 1.8s ease-in-out infinite; animation-delay: calc(var(--clock, 0) * -1ms); }
+.led.off { background: #3A3A46; box-shadow: none; }
+@keyframes ledpulse { 50% { opacity: .35; box-shadow: 0 0 2px 0 var(--c, var(--aqua)); } }
+.led-ic { display: inline-block; vertical-align: -3px; margin-right: 8px; flex: none; }
+.led-ic circle { fill: rgba(255, 255, 255, .07); }
+.led-ic circle.on { fill: var(--c, var(--periwinkle)); filter: drop-shadow(0 0 1.6px var(--c, var(--periwinkle))); animation: twinkle 2.4s ease-in-out infinite; animation-delay: calc(var(--clock, 0) * -1ms + var(--d, 0ms)); }
+@keyframes twinkle { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+.card-head h3, .panel > h3 { display: flex; align-items: center; }
+.badge-led { position: absolute; top: 6px; right: 6px; min-width: 16px; height: 16px; border-radius: 8px; padding: 0 4px; font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; background: var(--ember); color: #fff; box-shadow: 0 0 10px rgba(255, 90, 69, .7); }
+.iconbtn { position: relative; }
+
+/* LED strip: a row of dots that runs like a marquee, used to show live activity. */
+.ledstrip { display: flex; gap: 4px; justify-content: center; }
+.ledstrip i { width: 5px; height: 5px; border-radius: 50%; background: rgba(255, 255, 255, .08); animation: strip 1.6s linear infinite; animation-delay: calc(var(--clock, 0) * -1ms + var(--d)); }
+@keyframes strip { 0%, 100% { background: rgba(255, 255, 255, .08); box-shadow: none; } 12% { background: var(--c, var(--periwinkle)); box-shadow: 0 0 6px var(--c, var(--periwinkle)); } 30% { background: rgba(255, 255, 255, .08); box-shadow: none; } }
+
+/* Hero glow breathes very slowly. */
+.hero::before { animation: breathe 9s ease-in-out infinite; animation-delay: calc(var(--clock, 0) * -1ms); }
+@keyframes breathe { 50% { opacity: .72; transform: scale(1.06); } }
+/* Hero numerals: lit dots carry a faint glow. */
+.hero .dm circle:not(.off) { filter: drop-shadow(0 0 2px rgba(255, 255, 255, .55)); }
+
+/* ============ Entrances (only when the screen changes) ============ */
+.enter .topbar { animation: fadein .45s var(--ease) both; animation-delay: calc(var(--since, 0) * -1ms); }
+.enter .scroll > *, .enter .dock, .enter .main > * { animation: rise .6s var(--ease) both; animation-delay: calc(var(--since, 0) * -1ms); }
+.enter .scroll > *:nth-child(2), .enter .main > *:nth-child(2) { animation-delay: calc(50ms - var(--since, 0) * 1ms); }
+.enter .scroll > *:nth-child(3), .enter .main > *:nth-child(3) { animation-delay: calc(100ms - var(--since, 0) * 1ms); }
+.enter .scroll > *:nth-child(4), .enter .main > *:nth-child(4) { animation-delay: calc(150ms - var(--since, 0) * 1ms); }
+.enter .scroll > *:nth-child(5), .enter .main > *:nth-child(5) { animation-delay: calc(200ms - var(--since, 0) * 1ms); }
+.enter .scroll > *:nth-child(n+6), .enter .main > *:nth-child(n+6) { animation-delay: calc(250ms - var(--since, 0) * 1ms); }
+.enter .dock { animation-delay: calc(120ms - var(--since, 0) * 1ms); }
+.enter .tick-gauge line { animation: tickin .9s var(--ease) both; animation-delay: calc(var(--i) * 9ms - var(--since, 0) * 1ms); }
+@keyframes rise { from { opacity: 0; transform: translateY(14px); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes fadein { from { opacity: 0; } }
+@keyframes tickin { from { opacity: 0; } }
+
+/* ============ Sheets ============ */
+.sheet-wrap { position: absolute; inset: 0; z-index: 9; display: flex; flex-direction: column; justify-content: flex-end; background: rgba(5, 5, 8, .45); animation: fadein .3s var(--ease) both; }
+.sheet { position: relative; margin: 0 8px 8px; border-radius: 34px; padding: 10px 18px 22px; max-height: 86%; overflow-y: auto; scrollbar-width: none; animation: sheetup .5s var(--ease) both; }
+.sheet .grab { width: 40px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, .25); margin: 0 auto 12px; }
+.sheet h2 { margin: 0 0 4px; font-size: 22px; font-weight: 400; letter-spacing: -.015em; }
+.sheet .sub { color: var(--fg-2); font-size: 13.5px; margin: 0 0 14px; }
+@keyframes sheetup { from { transform: translateY(40px); opacity: 0; } }
+.web-sheet { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(5, 5, 8, .55); animation: fadein .25s both; }
+.web-sheet .sheet { width: min(460px, 92vw); margin: 0; border-radius: 26px; padding: 22px; }
+.callring { width: 120px; height: 120px; border-radius: 50%; margin: 10px auto 14px; display: grid; place-items: center; position: relative; background: radial-gradient(circle, rgba(98, 70, 234, .45), rgba(98, 70, 234, .05) 70%); }
+.callring::before, .callring::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 1px solid rgba(185, 174, 255, .5); animation: ripple 2.2s ease-out infinite; animation-delay: calc(var(--clock, 0) * -1ms); }
+.callring::after { animation-delay: calc(var(--clock, 0) * -1ms + 1.1s); }
+@keyframes ripple { from { transform: scale(.7); opacity: .9; } to { transform: scale(1.5); opacity: 0; } }
+
+/* Settings rows */
+.set { display: flex; align-items: center; gap: 12px; padding: 13px 2px; width: 100%; text-align: left; }
+.set + .set { border-top: 1px solid var(--line); }
+.set .grow b { display: block; font-weight: 500; font-size: 14.5px; }
+.set .grow small { display: block; color: var(--fg-3); font-size: 12.5px; }
+.set .chev { color: var(--fg-3); transform: rotate(180deg); }
+.seg2 { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; border-radius: 16px; background: rgba(255, 255, 255, .04); }
+.seg2 button { padding: 9px 6px; border-radius: 12px; font-size: 13px; color: var(--fg-2); }
+.seg2 button[aria-pressed="true"] { background: var(--lavender); color: var(--ink); font-weight: 600; }
+.amount-in { font-size: 40px; font-weight: 300; background: transparent; border: 0; text-align: center; width: 100%; letter-spacing: -.02em; }
+.amount-in:focus { outline: none; }
+.timeline .stop .s { font-variant-numeric: tabular-nums; }
+.notif { display: flex; gap: 12px; padding: 12px 2px; width: 100%; text-align: left; align-items: flex-start; }
+.notif + .notif { border-top: 1px solid var(--line); }
+.notif .ic { width: 34px; height: 34px; border-radius: 11px; }
+.notif.unread .t::after { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--periwinkle); margin-left: 6px; vertical-align: 2px; box-shadow: 0 0 6px var(--periwinkle); }
+.bell-pop { position: absolute; right: 0; top: 46px; width: 360px; z-index: 30; border-radius: 22px; padding: 14px; max-height: 460px; overflow: auto; }
+
+.webapp { position: relative; }
+.page-head { padding-right: 64px; }

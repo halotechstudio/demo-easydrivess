@@ -18,11 +18,19 @@ export function createStore(initial = {}) {
 
 export const uid = (s, prefix) => `${prefix}${String(s.get().seq++).padStart(4, '0')}`;
 
-export function notify(s, app, to, title, body, tone = 'info') {
-  const n = { id: uid(s, 'N'), app, to, title, body, tone, at: s.get().now, read: false };
+// kind: ride | wallet | payout | safety | promo | system — used for icons and per-user mute settings.
+export function notify(s, app, to, title, body, tone = 'info', kind) {
+  kind ||= tone === 'alert' ? 'safety' : /wallet|money|refund|top/i.test(title) ? 'wallet' : 'ride';
+  const n = { id: uid(s, 'N'), app, to, title, body, tone, kind, at: s.get().now, read: false, rideId: s.get()._ctxRide || null };
   s.get().notifications.unshift(n);
   s.dispatch('notify', n);
   return n;
+}
+export const inbox = (s, app, to) => s.get().notifications.filter(n => n.app === app && n.to === to);
+export const unread = (s, app, to) => inbox(s, app, to).filter(n => !n.read).length;
+export function markRead(s, app, to, id) {
+  for (const n of inbox(s, app, to)) if (!id || n.id === id) n.read = true;
+  s.dispatch('read', { app, to });
 }
 
 // IST helpers (UTC+5:30)

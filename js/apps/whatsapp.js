@@ -3,6 +3,8 @@ import { inr, fmtClock } from '../engine/store.js';
 import { places } from '../engine/geo.js';
 import { waHandle } from '../engine/whatsapp.js';
 import { router } from './common.js';
+import { callSheet, menuSheet, openSheet, closeSheet, flash } from './sheets.js';
+import { btn } from '../ui/kit.js';
 
 // A generic chat app (our own drawing, not WhatsApp's branding) driving the chat-booking engine.
 export function createWhatsApp(s) {
@@ -27,7 +29,7 @@ export function createWhatsApp(s) {
     }));
     if (m.kind === 'classes') return h('div', { class: 'waclass', style: active ? null : { opacity: .35, pointerEvents: 'none' } }, m.cards.map(c => h('button', { onclick: () => send(`cls:${c.cls}`) }, h('b', null, c.cls), h('span', null, `${c.min} min · condition ${c.score ?? '—'}`), h('em', null, inr(c.fare)))));
     if (m.kind === 'upi') return h('div', { class: 'msg bot', style: { padding: '12px' } },
-      h('div', { class: 'flex between' }, h('div', null, h('div', { class: 'label' }, 'UPI payment link'), h('div', { style: { fontSize: '20px', fontWeight: 600 } }, inr(m.amount))), h('span', { class: 'pill violet' }, 'Pay now')),
+      h('div', { class: 'flex between' }, h('div', null, h('div', { class: 'label' }, 'UPI payment link'), h('div', { style: { fontSize: '20px', fontWeight: 600 } }, inr(m.amount))), m.paid ? h('span', { class: 'pill good' }, 'Paid') : h('button', { class: 'pill violet', onclick: () => payUpi(m) }, 'Pay now')),
       h('div', { class: 'small mt8' }, m.text));
     if (m.kind === 'driver') return h('div', { class: 'msg bot', style: { padding: '12px', minWidth: '78%' } },
       h('div', { class: 'label' }, 'Your driver'),
@@ -45,8 +47,8 @@ export function createWhatsApp(s) {
     const lastBotIdx = msgs.map((m, i) => (m.from === 'bot' && ['buttons', 'classes'].includes(m.kind) ? i : -1)).filter(i => i >= 0).pop();
     const lastUser = msgs.map((m, i) => (m.from === 'user' ? i : -1)).filter(i => i >= 0).pop() ?? -1;
     return [
-      h('div', { class: 'chat-head' }, h('button', { class: 'iconbtn ghost' }, icon('back')), h('div', { style: { width: '36px', height: '36px' } }, h('svg', { viewBox: '0 0 32 32', width: 36, height: 36 }, h('rect', { width: 32, height: 32, rx: 16, fill: '#6246EA' }), h('path', { d: 'M10 9h12v3.6h-8v2.2h6v3.2h-6v2.4h8V24H10z', fill: '#fff' }))),
-        h('div', { class: 'grow' }, h('b', null, 'Easydrivess'), h('small', null, 'Business account · replies instantly')), h('button', { class: 'iconbtn ghost' }, icon('phone'))),
+      h('div', { class: 'chat-head' }, h('button', { class: 'iconbtn ghost', 'aria-label': 'Chat options', onclick: () => menuSheet(app, 'Chat', [{ label: 'Start a new booking', icon: 'plus', run: () => send('hi') }, { label: 'Clear this chat', icon: 'close', danger: true, run: () => { const c = chat(); if (c) { c.messages = []; c.stage = 'start'; } ui.dirty(); } }]) }, icon('back')), h('div', { style: { width: '36px', height: '36px' } }, h('svg', { viewBox: '0 0 32 32', width: 36, height: 36 }, h('rect', { width: 32, height: 32, rx: 16, fill: '#6246EA' }), h('path', { d: 'M10 9h12v3.6h-8v2.2h6v3.2h-6v2.4h8V24H10z', fill: '#fff' }))),
+        h('div', { class: 'grow' }, h('b', null, 'Easydrivess'), h('small', null, 'Business account · replies instantly')), h('button', { class: 'iconbtn ghost', 'aria-label': 'Call Easydrivess', onclick: () => callSheet(app, { name: 'Easydrivess', role: 'Booking line' }) }, icon('phone'))),
       h('div', { class: 'chat' },
         !msgs.length && h('div', { class: 'center small', style: { margin: 'auto 20px', color: 'var(--fg-3)' } }, 'Book a cab by chat. No app needed. Say hi to start.'),
         msgs.map((m, i) => bubble(m, i, i === lastBotIdx && lastBotIdx > lastUser))),
@@ -56,6 +58,17 @@ export function createWhatsApp(s) {
         h('button', { class: 'send', 'aria-label': 'Send', onclick: () => send(app.draft || 'hi') }, icon('send'))),
     ];
   };
+  function payUpi(m) {
+    const st = { appName: 'GPay' };
+    openSheet(app, { title: `Pay ${inr(m.amount)}`, sub: 'To Easydrivess · UPI', body: () => [
+      h('div', { class: 'seg2' }, ['GPay', 'PhonePe', 'Paytm', 'BHIM'].map(n => h('button', { 'aria-pressed': String(st.appName === n), onclick: () => { st.appName = n; ui.dirty(); } }, n))),
+      h('div', { class: 'mt16' }, btn(`Pay with ${st.appName}`, { kind: 'primary', arrow: true, onClick: () => {
+        m.paid = true; const c = chat(); c.messages.push({ from: 'bot', kind: 'text', text: `Payment of ${inr(m.amount)} received via ${st.appName}. Thank you.` });
+        const r = s.get().rides.find(x => x.id === c.data.rideId); if (r) r.prepaid = true;
+        closeSheet(app); flash(app, 'Paid', `${inr(m.amount)} via ${st.appName}.`);
+      } })),
+    ] });
+  }
   app.caption = () => 'Rahul · no app installed';
   app.galleryScreens = () => [{ title: 'Chat booking', screen: 'chat' }];
   return app;

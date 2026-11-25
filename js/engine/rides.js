@@ -1,7 +1,7 @@
 import { uid, notify, inr, fmtTime, IST } from './store.js';
 import { places, route, pathOf, along, UNIT_KM, ROAD, minutesFor, distanceKm } from './geo.js';
 import { quote, conditionScore, classEligible, DAY } from './pricing.js';
-import { charge, refund, driverCredit } from './wallet.js';
+import { charge, refund, driverCredit, tickPayouts } from './wallet.js';
 import { waOnUpdate } from './whatsapp.js';
 
 const MIN = 60e3;
@@ -30,7 +30,7 @@ export function bookRide(s, req) {
   const est = req.fare ?? quote({ cls: req.cls, km: path.km, min: path.min, trip: req.trip, demand: st.pricing.demand, now: req.at || st.now, pricing: st.pricing }).fare;
   const ride = {
     id: uid(s, 'R'), riderId: req.riderId, riderIds: req.riderIds || [req.riderId], pickup: req.pickup, drop: req.drop,
-    cls: req.cls, trip: req.trip || 'city', channel: req.channel || 'app', payer: req.payer || 'self', batchId: req.batchId || null,
+    cls: req.cls, trip: req.trip || 'city', channel: req.channel || 'app', payer: req.payer || 'self', method: req.method || (!req.payer || req.payer === 'self' ? 'upi' : st.wallets[req.payer]?.personal ? 'wallet' : 'company'), batchId: req.batchId || null,
     stops: req.stops || [], points: path.points, km: path.km, min: path.min, fare: est, fixedFare: req.fare != null, quoted: !!req.quoted,
     at: req.at || null, flight: req.flight || null, guest: req.guest || null, chatId: req.chatId || null, templateId: req.templateId || null,
     status: req.at && req.at - st.now > DISPATCH_AHEAD ? 'scheduled' : 'finding',
@@ -63,14 +63,14 @@ export function bookBatch(s, plan, { payer, trip = 'city', at = null, channel = 
 export function cancelRide(s, rideId, by = 'rider') {
   const st = s.get(); const r = st.rides.find(x => x.id === rideId);
   if (!r || ['completed', 'cancelled'].includes(r.status)) return;
-  if (['finding', 'scheduled', 'arriving', 'arrived'].includes(r.status) && r.payer !== 'self') refund(s, r.payer, r.fare, r.id);
+  if (['finding', 'scheduled', 'arriving', 'arrived'].includes(r.status) && r.payer !== 'self') refund(s, r.payer, r.fare, r.id, 'Ride cancelled before pickup');
   if (r.driverId) { const d = driverOf(s, r.driverId); d.busy = false; }
   r.status = 'cancelled'; r.offer = null; r.log.push({ at: st.now, text: `Cancelled by ${by}` });
   s.dispatch('ride', r);
 }
 
 export function acceptOffer(s, rideId) {
-  const st = s.get(); const r = st.rides.find(x => x.id === rideId);
+  const st = s.get(); const r = st.rides.find(x => x.id === rideId); st._ctxRide = rideId;
   if (!r?.offer) return;
   const d = driverOf(s, r.offer.driverId); const car = carOf(s, d.id);
   r.driverId = d.id; r.carId = car.id; r.offer = null; d.busy = true;
@@ -80,7 +80,7 @@ export function acceptOffer(s, rideId) {
     const before = r.fare;
     r.fare = r.quoted ? Math.min(r.fare, actual) : actual;
     // A company or hotel that prepaid the quote gets the difference back.
-    if (r.quoted && r.payer !== 'self' && r.fare < before) refund(s, r.payer, before - r.fare, r.id);
+    if (r.quoted && r.payer !== 'self' && r.fare < before) refund(s, r.payer, before - r.fare, r.id, 'Your car came in cheaper than quoted');
   }
   const firstStop = r.stops.length ? r.stops[0].placeId : r.pickup;
   const target = places[firstStop];
@@ -147,7 +147,7 @@ export function materialiseTemplates(s) {
 function dispatch(s) {
   const st = s.get();
   const offered = new Set(st.rides.filter(r => r.offer).map(r => r.offer.driverId));
-  for (const r of st.rides) {
+  for (const r of st.rides) { st._ctxRide = r.id;
     if (r.status === 'scheduled' && r.at - st.now <= DISPATCH_AHEAD) { r.status = 'finding'; r.log.push({ at: st.now, text: 'Dispatching' }); }
     if (r.status !== 'finding') continue;
     if (r.offer) {
@@ -181,7 +181,7 @@ function dispatch(s) {
 
 function advance(s, dt) {
   const st = s.get();
-  for (const r of st.rides) {
+  for (const r of st.rides) { st._ctxRide = r.id;
     const d = r.driverId && driverOf(s, r.driverId);
     if (r.status === 'arriving') {
       r.approach.progress += dt / (r.approach.min * MIN);
@@ -220,7 +220,7 @@ function complete(s, r) {
   r.status = 'completed'; r.completedAt = st.now; d.busy = false; d.trips++; d.todayTrips++;
   const earn = driverCredit(s, d, r);
   r.log.push({ at: st.now, text: `Completed · driver earned ${inr(earn)}` });
-  for (const id of r.riderIds) notify(s, 'rider', id, 'You have arrived', r.payer === 'self' ? `${inr(r.fare)} paid. Rate your ride.` : 'Paid by your company. Rate your ride.', 'good');
+  for (const id of r.riderIds) notify(s, 'rider', id, 'You have arrived', ({ wallet: `${inr(r.fare)} paid from Easydrivess Money.`, cash: `Please pay ${inr(r.fare)} in cash.`, company: 'Paid by your company.', card: `${inr(r.fare)} charged to your card.` }[r.method] || `${inr(r.fare)} paid by UPI.`) + ' Rate your ride.', 'good');
   notify(s, 'driver', d.id, 'Trip complete', `${inr(earn)} added to your wallet.`, 'good');
   waOnUpdate(s, r, 'completed');
   s.dispatch('ride', r);
@@ -233,6 +233,8 @@ export function tick(s, dt) {
   if (dayKeyOf(st.now) !== before) materialiseTemplates(s);
   dispatch(s);
   advance(s, dt);
+  st._ctxRide = null;
+  tickPayouts(s);
   s.dispatch('tick', st.now);
 }
 const dayKeyOf = dayKey;
