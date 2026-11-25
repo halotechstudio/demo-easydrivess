@@ -89,8 +89,8 @@ export function seed(s) {
       notify: { rides: true, wallet: true, promos: true, whatsapp: true, email: true } };
     r.since = 'March 2025'; r.trips = 40 + r.id.charCodeAt(1) * 3;
     // Past trip history used for the Frequent trips list.
-    r.freq = r.company ? [{ pickup: r.home, drop: r.company, count: 34, cls: 'Sedan' }, { pickup: r.company, drop: r.home, count: 31, cls: 'Sedan' }, { pickup: r.home, drop: 'rgia', count: 4, cls: 'Sedan' }]
-      : [{ pickup: r.home, drop: 'hitec', count: 22, cls: 'Sedan' }, { pickup: 'hitec', drop: r.home, count: 19, cls: 'Sedan' }, { pickup: r.home, drop: 'rgia', count: 6, cls: 'Sedan' }, { pickup: r.home, drop: 'banjara', count: 5, cls: 'Hatchback' }];
+    r.freq = r.company ? [{ pickup: r.home, drop: r.company, count: 34, cls: 'Sedan' }, { pickup: r.company, drop: r.home, count: 31, cls: 'Sedan' }, { pickup: r.home, drop: 'rgia', count: 4, cls: 'Sedan' }, { pickup: r.home, drop: 'banjara', count: 3, cls: 'Sedan' }, { pickup: r.home, drop: 'gachibowli', count: 2, cls: 'Sedan' }]
+      : [{ pickup: r.home, drop: 'hitec', count: 22, cls: 'Sedan' }, { pickup: 'hitec', drop: r.home, count: 19, cls: 'Sedan' }, { pickup: r.home, drop: 'rgia', count: 6, cls: 'Sedan' }, { pickup: r.home, drop: 'banjara', count: 5, cls: 'Hatchback' }, { pickup: r.home, drop: 'gachibowli', count: 4, cls: 'Sedan' }];
   }
 
   st.hotels = [

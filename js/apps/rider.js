@@ -100,7 +100,9 @@ export function createRider(s) {
             h('span', { class: 'grow' }, h('div', { style: { fontWeight: 600, fontSize: '14.5px' } }, `${next.templateId ? 'Repeating' : 'Scheduled'} · ${fmtTime(next.at)}`), h('div', { class: 'label' }, `${next.cls} to ${placeName(next.drop)} · ${inr(next.fare)} · driver assigned 20 min before`)),
             h('span', { class: 'pill violet' }, 'Set')),
           h('button', { class: 'searchbar', onclick: () => ui.go('where', { pickup: here() }) }, icon('search'), 'Where to?'),
-          h('div', { class: 'saved' }, r.saved.filter(x => x.place !== here()).map(x => h('button', { onclick: () => ui.go('book', { pickup: here(), drop: x.place, trip: x.place === 'rgia' ? 'airport' : 'city' }) }, icon(x.label === 'Home' ? 'home' : x.label === 'Airport' ? 'plane' : 'work'), x.label))),
+          h('div', { class: 'saved' }, r.saved.filter(x => x.place !== here()).map(x => h('button', { onclick: () => ui.go('book', { pickup: here(), drop: x.place, trip: x.place === 'rgia' ? 'airport' : 'city' }) }, icon(x.label === 'Home' ? 'home' : x.label === 'Airport' ? 'plane' : 'work'), x.label)),
+            // Two most frequent destinations not already saved, in the same chip style.
+            (r.freq || []).filter(f => f.pickup === here() && !r.saved.some(x => x.place === f.drop)).sort((a, b) => b.count - a.count).slice(0, 2).map(f => h('button', { onclick: () => ui.go('book', { pickup: here(), drop: f.drop, trip: 'city' }) }, icon('repeat'), placeName(f.drop)))),
           h('div', { class: 'choices mt16' },
             [['city', 'City', 'city'], ['airport', 'Airport', 'plane'], ['intercity', 'Intercity', 'route'], ['schedule', 'Schedule', 'calendar']].map(([k, l, ic]) =>
               h('button', { class: 'choice', onclick: () => k === 'city' ? ui.go('where', { pickup: here() }) : ui.go(k, { pickup: here() }) }, animIcon(k), l))),
