@@ -65,3 +65,14 @@ export function explainer(app, kind, { force = false } = {}) {
       h('div', null, h('b', null, COPY[kind][0]), h('p', null, COPY[kind][1])),
       !force && h('button', { class: 'iconbtn', 'aria-label': 'Close', style: { width: '30px', height: '30px', flex: 'none' }, onclick: () => { app.seenEx[kind] = true; app.ui.dirty(); } }, icon('close', 14))));
 }
+
+// Animated icons for the rider's trip-type buttons. Each loops gently and hints at what it books.
+const AI = {
+  city: `<path d="M4 20V9l5-3v14M9 20V4h7v16M16 20v-9l4 2v7M3 20h18"/><g class="ai-win"><rect x="11.5" y="7" width="1.6" height="1.6" rx=".3"/><rect x="11.5" y="10.5" width="1.6" height="1.6" rx=".3"/><rect x="11.5" y="14" width="1.6" height="1.6" rx=".3"/><rect x="5.6" y="11" width="1.4" height="1.4" rx=".3"/><rect x="17.4" y="14" width="1.4" height="1.4" rx=".3"/></g>`,
+  airport: `<path class="ai-trail" d="M2 19c4 0 7-2 9-5"/><g class="ai-plane"><path d="M10.5 13.5L4 11l1.5-1.5 7 1 3.5-4.5c.8-1 2.3-1.1 3-.3.8.7.7 2.2-.3 3l-4.5 3.5 1 7L13 21l-2.5-6.5-3 2.5.5 2.5-1.5 1-1.5-3-3-1.5 1-1.5 2.5.5z"/></g>`,
+  intercity: `<circle cx="6" cy="17" r="2"/><circle cx="18" cy="7" r="2"/><path class="ai-road" d="M6 15V9a3 3 0 0 1 3-3h3M18 9v6a3 3 0 0 1-3 3h-3"/><circle class="ai-dot" r="1.6" fill="currentColor" stroke="none"/>`,
+  schedule: `<path d="M4 6h16v14H4zM4 10h16M8 3v4M16 3v4"/><g class="ai-clock"><circle cx="12" cy="15" r="3.2"/><path class="ai-hand" d="M12 15v-2"/></g>`,
+};
+export function animIcon(kind) {
+  return h('svg', { class: `ai ai-${kind}`, viewBox: '0 0 24 24', width: 22, height: 22, fill: 'none', stroke: 'currentColor', 'stroke-width': 1.6, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', html: AI[kind] });
+}

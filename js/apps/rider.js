@@ -1,4 +1,4 @@
-import { explainer } from '../ui/explain.js';
+import { explainer, animIcon } from '../ui/explain.js';
 import { h, icon, map, scrollNumber, dotNumber, sentence, topbar, adCard, btn, carArt, pill, initials, tile } from '../ui/kit.js';
 import { inr, fmtTime, IST, unread } from '../engine/store.js';
 import { places, placeList, route } from '../engine/geo.js';
@@ -95,7 +95,7 @@ export function createRider(s) {
           h('div', { class: 'saved' }, r.saved.filter(x => x.place !== here()).map(x => h('button', { onclick: () => ui.go('book', { pickup: here(), drop: x.place, trip: x.place === 'rgia' ? 'airport' : 'city' }) }, icon(x.label === 'Home' ? 'home' : x.label === 'Airport' ? 'plane' : 'work'), x.label))),
           h('div', { class: 'choices mt16' },
             [['city', 'City', 'city'], ['airport', 'Airport', 'plane'], ['intercity', 'Intercity', 'route'], ['schedule', 'Schedule', 'calendar']].map(([k, l, ic]) =>
-              h('button', { class: 'choice', onclick: () => k === 'city' ? ui.go('where', { pickup: here() }) : ui.go(k, { pickup: here() }) }, icon(ic), l))),
+              h('button', { class: 'choice', onclick: () => k === 'city' ? ui.go('where', { pickup: here() }) : ui.go(k, { pickup: here() }) }, animIcon(k), l))),
           h('button', { class: 'card mt12', style: { width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '12px' }, onclick: () => book({ ...rebook, trip: 'city' }, app.lastCls, rbEst.fare) },
             h('span', { class: 'ic' }, icon('repeat')),
             h('span', { class: 'grow' }, h('div', { style: { fontWeight: 600, fontSize: '14.5px' } }, `Book again: ${placeName(rebook.drop)}`), h('div', { class: 'label' }, `${app.lastCls} · ${inr(rbEst.fare)} · from ${placeName(rebook.pickup)}`)),
