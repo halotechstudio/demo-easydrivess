@@ -186,6 +186,56 @@ test('more riders than one car holds are split into valid cars', () => {
   for (const c of plan.cars) assert.ok(c.riders.length <= 6);
 });
 
+test('night rule never breaks the detour cap', () => {
+  const s = fresh();
+  const team = s.get().riders.filter(r => r.company === 'orbit').slice(0, 7);
+  const plan = planBatch(team.map(r => ({ id: r.id, pickup: 'orbit', drop: r.home, gender: r.gender })), { pricing: s.get().pricing, now: s.get().now, night: true });
+  for (const c of plan.cars) {
+    for (const d of c.detours) assert.ok(d.ok, `${d.riderId} extra ${d.extra}`);
+    const g = c.riders.map(id => team.find(r => r.id === id).gender);
+    if (g.includes('f') && g.includes('m')) assert.equal(g[g.length - 1], 'm', 'last drop not a woman');
+  }
+});
+
+test('busy-hour demand is applied once', () => {
+  const s = fresh(); const p = s.get().pricing; p.demand = 1.4;
+  const q = quote({ cls: 'Sedan', km: 10, min: 25, trip: 'city', demand: p.demand, now: s.get().now, pricing: p });
+  assert.equal(q.parts.demand, 1.4);
+  const q2 = quote({ cls: 'Sedan', km: 10, min: 25, trip: 'city', now: s.get().now, pricing: p });
+  assert.equal(q2.parts.demand, 1.4);
+});
+
+test('company is refunded when the assigned car is cheaper than the quote', () => {
+  const s = fresh(); const w = s.get().wallets.orbit; const before = w.balance;
+  charge(s, 'orbit', 400, 'x');
+  const id = bookRide(s, { riderId: 'r1', pickup: 'jubilee', drop: 'hitec', cls: 'Sedan', trip: 'city', channel: 'corporate', payer: 'orbit', fare: 400, quoted: true });
+  for (let i = 0; i < 10; i++) tick(s, 2000);
+  const r = s.get().rides.find(x => x.id === id);
+  assert.ok(r.fare < 400);
+  assert.equal(w.balance, before - r.fare);
+});
+
+test('a ride everyone declined is offered again', () => {
+  const s = fresh();
+  s.get().drivers.forEach(d => { d.auto = false; });
+  const id = bookRide(s, { riderId: 'r1', pickup: 'banjara', drop: 'hitec', cls: 'Luxury', trip: 'city', channel: 'app' });
+  for (let i = 0; i < 40; i++) tick(s, 5000);
+  s.get().drivers.forEach(d => { d.auto = true; });
+  for (let i = 0; i < 60; i++) tick(s, 5000);
+  assert.notEqual(s.get().rides.find(x => x.id === id).status, 'finding');
+});
+
+test('WhatsApp booking keeps the fare shown on the class card', () => {
+  const s = fresh(); const chat = 'wa2';
+  for (const x of ['hi', 'City', 'loc:jubilee', 'drop:hitec']) waHandle(s, chat, x);
+  const card = s.get().whatsapp[chat].messages.find(m => m.kind === 'classes').cards.find(c => c.cls === 'Sedan');
+  waHandle(s, chat, 'cls:Sedan');
+  const r = s.get().rides.find(x => x.chatId === chat);
+  assert.equal(r.fare, card.fare);
+  for (let i = 0; i < 10; i++) tick(s, 2000);
+  assert.ok(s.get().rides.find(x => x.chatId === chat).fare <= card.fare);
+});
+
 test('WhatsApp books a ride in 4 taps after hi', () => {
   const s = fresh();
   const chat = 'wa1';

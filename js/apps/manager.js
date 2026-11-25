@@ -108,8 +108,11 @@ export function createManager(s) {
             h('div', { class: 'flex wrap mt8', style: { gap: '6px' } }, c.riders.map(id => pill(st().riders.find(r => r.id === id).name.split(' ')[0])))))),
         h('div', { class: 'dock' },
           short ? h('div', { class: 'card', style: { marginBottom: '8px', background: 'rgba(255,90,69,.12)' } }, h('div', { class: 'small', style: { color: '#FF8A78' } }, `Wallet has ${inr(w.balance)}. Add ${inr(p.total - w.balance)} to book these rides.`)) : null,
-          short ? btn(`Add ${inr(Math.ceil((p.total - w.balance) / 1000) * 1000)} and pay`, { arrow: true, onClick: () => { topUp(s, app.company, Math.ceil((p.total - w.balance) / 1000) * 1000); ui.dirty(); } })
-            : btn(`Pay ${inr(p.total)} from wallet`, { arrow: true, onClick: () => { const res = bookBatch(s, p, { payer: app.company, at: when(), bookedBy: co().manager }); if (!res.error) { app.sel = new Set(); ui.reset('booked', { n, cars: p.cars.length, total: p.total, saved: p.saved }); } } }))];
+          btn(short ? `Add ${inr(Math.ceil((p.total - w.balance) / 1000) * 1000)} and pay` : `Pay ${inr(p.total)} from wallet`, { arrow: true, onClick: () => {
+            if (short) topUp(s, app.company, Math.ceil((p.total - w.balance) / 1000) * 1000);
+            const res = bookBatch(s, p, { payer: app.company, at: when(), bookedBy: co().manager });
+            if (!res.error) { app.sel = new Set(); ui.reset('booked', { n, cars: p.cars.length, total: p.total, saved: p.saved }); }
+          } }))];
     },
 
     booked(p) {

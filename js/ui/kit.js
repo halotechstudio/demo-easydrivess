@@ -254,8 +254,8 @@ export function swipe(label, onDone) {
   const knob = h('div', { class: 'knob', role: 'button', 'aria-label': label, tabindex: 0 }, icon('arrow'));
   const el = h('div', { class: 'swipe' }, h('span', null, label), knob);
   let start = null, max = 0;
-  const end = ok => { start = null; if (ok) onDone(); else knob.style.transform = ''; knob.style.transition = 'transform .3s var(--ease)'; };
-  knob.addEventListener('pointerdown', e => { start = e.clientX; max = el.clientWidth - 62; knob.setPointerCapture(e.pointerId); knob.style.transition = 'none'; });
+  const end = ok => { if (start == null) return; start = null; el.classList.remove('dragging'); if (ok) onDone(); else knob.style.transform = ''; knob.style.transition = 'transform .3s var(--ease)'; };
+  knob.addEventListener('pointerdown', e => { start = e.clientX; el.classList.add('dragging'); max = el.clientWidth - 62; knob.setPointerCapture(e.pointerId); knob.style.transition = 'none'; });
   knob.addEventListener('pointermove', e => { if (start == null) return; const scale = el.getBoundingClientRect().width / el.clientWidth || 1; const dx = Math.max(0, Math.min(max, (e.clientX - start) / scale)); knob.style.transform = `translateX(${dx}px)`; if (dx >= max * .9) end(true); });
   knob.addEventListener('pointerup', () => end(false));
   knob.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') onDone(); });

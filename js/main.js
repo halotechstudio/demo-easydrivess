@@ -60,6 +60,7 @@ function paint(key, build) {
   const m = mounts[key]; if (!m) return;
   const ae = document.activeElement;
   if (ae && m.contains(ae) && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) return;
+  if (m.querySelector('.dragging')) return; // never replace a swipe mid-drag
   const scrolls = {}; m.querySelectorAll('[data-key], .scroll, .main, .chat').forEach((el, i) => { scrolls[el.dataset.key || i] = el.scrollTop; });
   const chatAtBottom = [...m.querySelectorAll('.chat')].some(el => el.scrollHeight - el.scrollTop - el.clientHeight < 40);
   m.replaceChildren(build());
@@ -116,6 +117,8 @@ function renderAll() {
 let last = performance.now(), acc = 0, lastPaint = 0;
 function frame(t) {
   const dt = Math.min(250, t - last); last = t;
+  // A driver gets 20 real seconds to accept, whatever the sim speed.
+  s.get().offerMs = 20000 * SPEEDS[presenter.speed][1];
   if (presenter.playing) {
     acc += dt * SPEEDS[presenter.speed][1];
     while (acc >= 1000) { tick(s, 1000); acc -= 1000; }

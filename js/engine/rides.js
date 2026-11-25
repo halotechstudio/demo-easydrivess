@@ -77,7 +77,10 @@ export function acceptOffer(s, rideId) {
   // Ruling: the rider never pays more than the fare they were shown; a lower-scoring car brings the price down.
   if (!r.fixedFare || r.quoted) {
     const actual = quote({ cls: r.cls, km: r.km, min: r.min, car, trip: r.trip, demand: st.pricing.demand, now: st.now, pricing: st.pricing }).fare;
+    const before = r.fare;
     r.fare = r.quoted ? Math.min(r.fare, actual) : actual;
+    // A company or hotel that prepaid the quote gets the difference back.
+    if (r.quoted && r.payer !== 'self' && r.fare < before) refund(s, r.payer, before - r.fare, r.id);
   }
   const firstStop = r.stops.length ? r.stops[0].placeId : r.pickup;
   const target = places[firstStop];
@@ -135,7 +138,9 @@ export function materialiseTemplates(s) {
     const d = new Date(st.now + IST); const at = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), h, m) - IST;
     if (at < st.now) { t.lastDay = key; continue; }
     t.lastDay = key;
-    bookRide(s, { riderId: t.riderId, pickup: t.pickup, drop: t.drop, cls: t.cls, trip: 'city', channel: 'app', payer: t.payer, at, templateId: t.id });
+    const fare = quote({ cls: t.cls, km: distanceKm(t.pickup, t.drop), min: minutesFor(distanceKm(t.pickup, t.drop)), trip: 'city', now: at, pricing: st.pricing }).fare;
+    if (t.payer !== 'self' && charge(s, t.payer, fare, `repeat ${t.id}`) !== 'ok') { notify(s, 'rider', t.riderId, 'Repeating ride not booked', 'The company wallet is low today.', 'warn'); continue; }
+    bookRide(s, { riderId: t.riderId, pickup: t.pickup, drop: t.drop, cls: t.cls, trip: 'city', channel: t.payer === 'self' ? 'app' : 'corporate', payer: t.payer, at, templateId: t.id, fare, quoted: true });
   }
 }
 
@@ -155,7 +160,9 @@ function dispatch(s) {
     const cands = st.drivers.filter(d => d.online && !d.busy && !offered.has(d.id) && !r.declined.includes(d.id))
       .map(d => ({ d, car: carOf(s, d.id) }))
       .filter(({ car }) => car && car.status === 'live' && classEligible(car, st.now).includes(r.cls));
-    if (!cands.length) continue;
+    // Everyone eligible said no: start the round again rather than leave the rider waiting forever.
+    if (!cands.length) { if (r.declined.length) r.declined = []; r.noCars = true; continue; }
+    r.noCars = false;
     // Score: 50% ETA, 20% condition, 20% acceptance, 10% rest. Lower is better.
     // Ruling: a car from a higher class only serves a lower class when no same-class car is close (keeps premium cars free).
     const scored = cands.map(({ d, car }) => {
@@ -165,7 +172,7 @@ function dispatch(s) {
       return { d, score: 0.5 * eta + 0.2 * (100 - cond) / 4 + 0.2 * (100 - d.acceptance) / 4 + 0.1 * (d.restHours < 1 ? 20 : 0) + upgrade };
     }).sort((a, b) => a.score - b.score);
     const best = scored[0].d;
-    r.offer = { driverId: best.id, since: st.now, until: st.now + OFFER_MS };
+    r.offer = { driverId: best.id, since: st.now, until: st.now + (st.offerMs || OFFER_MS) };
     offered.add(best.id);
     notify(s, 'driver', best.id, 'New ride request', `${r.trip === 'airport' ? 'Airport · ' : ''}${places[r.pickup]?.name} to ${places[r.drop]?.name} · ${inr(r.fare)}`);
     s.dispatch('ride', r);

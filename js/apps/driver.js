@@ -146,7 +146,7 @@ export function createDriver(s) {
     const pk = places[r.stops[0]?.placeId || r.pickup];
     const kmTo = (Math.hypot(pk.x - d.pos.x, pk.y - d.pos.y) * .075).toFixed(1);
     return [h('div', { class: 'scroll', style: { paddingTop: '6px' } },
-      h('div', { class: 'flex between' }, pill(`${r.trip === 'airport' ? 'Airport' : r.trip === 'intercity' ? 'Intercity' : r.channel === 'corporate' ? 'Corporate' : r.channel === 'whatsapp' ? 'WhatsApp' : r.channel === 'hotel' ? 'Hotel' : 'City'} · ${r.cls}${r.stops.length ? ` · ${r.stops.length} stops` : ''}`, 'violet'), ring(left / OFFER_MS, { size: 52, label: Math.ceil(left / 1000) })),
+      h('div', { class: 'flex between' }, pill(`${r.trip === 'airport' ? 'Airport' : r.trip === 'intercity' ? 'Intercity' : r.channel === 'corporate' ? 'Corporate' : r.channel === 'whatsapp' ? 'WhatsApp' : r.channel === 'hotel' ? 'Hotel' : 'City'} · ${r.cls}${r.stops.length ? ` · ${r.stops.length} stops` : ''}`, 'violet'), ring(left / (st().offerMs || OFFER_MS), { size: 52, label: Math.ceil(left / (st().offerMs || OFFER_MS) * 20) })),
       h('p', { class: 'display', style: { margin: '10px 0 0' } }, 'New ride'),
       h('div', { class: 'hero mt12' }, h('div', { class: 'num-label' }, 'You earn'), h('div', { class: 'num-row' }, dotNumber('₹' + earn, { size: 10, off: false })),
         sentence([`${kmTo} km to pickup. Trip `, { chip: `${r.km} km` }, ` · about ${r.min} min.`])),

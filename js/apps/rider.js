@@ -32,8 +32,11 @@ export function createRider(s) {
   function book(params, cls, fare) {
     const st = s.get();
     const company = work();
-    const id = bookRide(s, { riderId: app.who, pickup: params.pickup, drop: params.drop, cls, trip: params.trip || 'city', channel: company ? 'corporate' : 'app', payer: company || 'self', at: params.at || null, flight: params.flight || null, fare, quoted: fare != null });
-    if (company) charge(s, company, st.rides.find(r => r.id === id).fare, id);
+    // Work rides are paid from the company wallet first; no money, no booking.
+    if (company && charge(s, company, fare, 'work ride') !== 'ok') { app.err = `${st.companies.find(c => c.id === company).name} wallet is low. Ask your manager to add money, or switch to Personal.`; ui.dirty(); return; }
+    app.err = null;
+    // Round trips are priced as a package, so the fare is fixed rather than re-quoted per car.
+    const id = bookRide(s, { riderId: app.who, pickup: params.pickup, drop: params.drop, cls, trip: params.trip || 'city', channel: company ? 'corporate' : 'app', payer: company || 'self', at: params.at || null, flight: params.flight || null, fare, quoted: fare != null && !params.round });
     if (params.repeat) {
       const d = new Date((params.at || st.now) + IST);
       st.templates.push({ id: `T${st.templates.length + 1}`, riderId: app.who, pickup: params.pickup, drop: params.drop, cls, days: [1, 2, 3, 4, 5], time: `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`, payer: company || 'self', label: `${placeName(params.pickup)} to ${placeName(params.drop)}`, lastDay: null });
@@ -176,7 +179,9 @@ export function createRider(s) {
           h('div', { class: 'card mt12', style: { padding: '4px 14px' } },
             h('div', { class: 'row' }, h('span', { class: 'ic' }, icon('clock')), h('div', { class: 'grow' }, h('div', { class: 't' }, p.at ? `Scheduled ${fmtTime(p.at)}` : 'Leave now'), p.repeat && h('div', { class: 's' }, 'Repeats every weekday'))),
             h('div', { class: 'row' }, h('span', { class: 'ic' }, icon(company ? 'work' : 'wallet')), h('div', { class: 'grow' }, h('div', { class: 't' }, company ? `${st.companies.find(c => c.id === company).name} pays` : 'UPI · ananya@okhdfc'), h('div', { class: 's' }, company ? 'You pay ₹0' : 'Charged after the ride'))))),
-        h('div', { class: 'dock' }, btn(`Book ${cls} · ${inr(e.fare)}`, { arrow: true, onClick: () => { app.pick = null; book(p, cls, e.fare); } }))];
+        h('div', { class: 'dock' },
+          app.err && h('div', { class: 'card', style: { marginBottom: '8px', background: 'rgba(255,90,69,.12)' } }, h('div', { class: 'small', style: { color: '#FF8A78' } }, app.err)),
+          btn(`Book ${cls} · ${inr(e.fare)}`, { arrow: true, onClick: () => { app.pick = null; book(p, cls, e.fare); } }))];
     },
 
     ride({ id }) {
@@ -193,7 +198,7 @@ export function createRider(s) {
         heroEl = h('div', { class: 'hero' },
           h('div', { class: 'num-label' }, 'Finding your car'),
           h('div', { class: 'num-row pulse' }, dotNumber('...', { size: 9, off: false })),
-          sentence([`Matching the closest ${r.cls} with condition above `, { chip: '85' }, r.at ? ` for ${fmtTime(r.at)}.` : '.']));
+          sentence(r.noCars ? [`No ${r.cls} free nearby yet. `, { chip: 'Still trying' }, ' You can cancel any time at no cost.'] : [`Matching the closest ${r.cls} with condition above `, { chip: '85' }, r.at ? ` for ${fmtTime(r.at)}.` : '.']));
       } else if (r.status === 'arriving') {
         const left = Math.max(1, Math.ceil(r.approach.min * (1 - r.approach.progress)));
         heroEl = h('div', { class: 'hero' },

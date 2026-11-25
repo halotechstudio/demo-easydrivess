@@ -42,7 +42,9 @@ export function waHandle(s, chatId, input) {
     const cls = input.slice(4); const trip = c.data.type.toLowerCase();
     const riderId = `wa-${chatId}`;
     if (!st.riders.some(r => r.id === riderId)) st.riders.push({ id: riderId, name: c.name, phone: c.phone, gender: 'm', saved: [], contact: { name: 'Family', phone: '' }, whatsapp: true });
-    const rideId = bookRide(s, { riderId, pickup: c.data.pickup, drop: c.data.drop, cls, trip: trip === 'city' ? 'city' : trip, channel: 'whatsapp', payer: 'self', chatId });
+    // Book at the fare the class card showed; the rider never pays more than that.
+    const shown = estimate(s, { pickup: c.data.pickup, drop: c.data.drop, cls, trip }).fare;
+    const rideId = bookRide(s, { riderId, pickup: c.data.pickup, drop: c.data.drop, cls, trip, channel: 'whatsapp', payer: 'self', chatId, fare: shown, quoted: true });
     const ride = st.rides.find(r => r.id === rideId);
     c.data.rideId = rideId; c.stage = 'confirmed'; st.stats.waBookingsToday++;
     say({ kind: 'text', text: `Booked. ${cls} from ${places[c.data.pickup].name} to ${places[c.data.drop].name}, ${inr(ride.fare)}. Finding your driver now.` });

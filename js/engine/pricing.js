@@ -50,7 +50,7 @@ export function classEligible(car, now) {
 
 const pick = (table, test) => table.find(test);
 
-export function quote({ cls, km, min, car, trip = 'city', demand = 1, now, pricing }) {
+export function quote({ cls, km, min, car, trip = 'city', demand, now, pricing }) {
   const p = pricing;
   const perKm = p.perKm[cls] * (trip === 'intercity' ? p.intercityPerKmFactor : 1);
   const raw = p.base[cls] + perKm * km + p.perMin[cls] * min;
@@ -58,7 +58,8 @@ export function quote({ cls, km, min, car, trip = 'city', demand = 1, now, prici
   const cond = car ? conditionScore(car, now).score : 85;
   const age = pick(p.age, r => yrs <= r.maxYears).f;
   const condition = pick(p.condition, r => cond >= r.min).f;
-  const dem = Math.min(Math.max(1, demand * (p.demand || 1)), p.surgeCap);
+  // Demand comes from the caller or the live pricing table, applied once.
+  const dem = Math.min(Math.max(1, demand ?? p.demand ?? 1), p.surgeCap);
   const h = istHour(now);
   const night = h >= 22 || h < 6 ? p.night : 1;
   const extra = (trip === 'airport' ? p.airport : 0) + (p.toll || 0);

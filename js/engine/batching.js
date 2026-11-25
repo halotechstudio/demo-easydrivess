@@ -10,7 +10,7 @@ const SLACK_KM = 4; // Ruling: short trips allow up to 4 km extra, else 20% (spe
 function legKm(ids) { let k = 0; for (let i = 0; i < ids.length - 1; i++) k += distanceKm(ids[i], ids[i + 1]); return k; }
 
 // A car's route for one hub: ends visited in `order`, hub last (in) or first (out).
-function evaluate(order, hub, dir, maxDetour) {
+function evaluate(order, hub, dir, maxDetour, night = false) {
   const ends = order.map(r => r.end);
   const seq = dir === 'in' ? [...ends, hub] : [hub, ...ends];
   const detours = order.map((r, i) => {
@@ -19,14 +19,18 @@ function evaluate(order, hub, dir, maxDetour) {
     const extra = ride - direct;
     return { riderId: r.id, ratio: direct ? ride / direct : 1, extra: Math.round(extra * 10) / 10, ok: extra <= Math.max(maxDetour * direct, SLACK_KM) + 1e-9 };
   });
-  return { km: legKm(seq), ok: detours.every(d => d.ok), detours };
+  // Night rule as a validity condition: when a woman shares with a man, she is never the exposed stop.
+  const mixed = night && order.some(r => r.gender === 'f') && order.some(r => r.gender === 'm');
+  const exposed = dir === 'in' ? order[0] : order[order.length - 1];
+  const nightOk = !mixed || exposed.gender !== 'f';
+  return { km: legKm(seq), ok: nightOk && detours.every(d => d.ok), detours };
 }
 
-function bestInsert(order, r, hub, dir, maxDetour) {
+function bestInsert(order, r, hub, dir, maxDetour, night) {
   let best = null;
   for (let i = 0; i <= order.length; i++) {
     const cand = [...order.slice(0, i), r, ...order.slice(i)];
-    const ev = evaluate(cand, hub, dir, maxDetour);
+    const ev = evaluate(cand, hub, dir, maxDetour, night);
     if (ev.ok && (!best || ev.km < best.ev.km)) best = { order: cand, ev };
   }
   return best;
@@ -51,7 +55,7 @@ function planHub(riders, hub, dir, o) {
       let best = null;
       for (const car of local) {
         if (car.order.length >= cap) continue;
-        const ins = bestInsert(car.order, r, hub, dir, o.maxDetour);
+        const ins = bestInsert(car.order, r, hub, dir, o.maxDetour, o.night);
         if (ins && (!best || ins.ev.km - car.km < best.ins.ev.km - best.car.km)) best = { car, ins };
       }
       if (best) { best.car.order = best.ins.order; best.car.km = best.ins.ev.km; }
@@ -68,9 +72,9 @@ function planHub(riders, hub, dir, o) {
       for (let j = 0; j < cars.length; j++) {
         if (i === j || cars[i].order.length + cars[j].order.length > cap) continue;
         let order = cars[j].order;
-        for (const r of cars[i].order) { const ins = bestInsert(order, r, hub, dir, o.maxDetour); if (!ins) { order = null; break; } order = ins.order; }
+        for (const r of cars[i].order) { const ins = bestInsert(order, r, hub, dir, o.maxDetour, o.night); if (!ins) { order = null; break; } order = ins.order; }
         if (order) {
-          cars[j] = { order, km: evaluate(order, hub, dir, o.maxDetour).km };
+          cars[j] = { order, km: evaluate(order, hub, dir, o.maxDetour, o.night).km };
           cars.splice(i, 1); merged = true; break outer;
         }
       }
@@ -78,16 +82,9 @@ function planHub(riders, hub, dir, o) {
   }
   // 4. Night rule, then build stops.
   return cars.map(car => {
-    let order = car.order;
-    if (o.night && order.some(r => r.gender === 'f') && order.some(r => r.gender === 'm')) {
-      const exposedIdx = dir === 'in' ? 0 : order.length - 1;
-      if (order[exposedIdx].gender === 'f') {
-        const m = order.findIndex(r => r.gender === 'm');
-        order = [...order]; const [man] = order.splice(m, 1);
-        if (dir === 'in') order.unshift(man); else order.push(man);
-      }
-    }
-    const ev = evaluate(order, hub, dir, o.maxDetour);
+    const order = car.order;
+    const ev = evaluate(order, hub, dir, o.maxDetour, o.night);
+
     const seq = dir === 'in' ? [...order.map(r => r.end), hub] : [hub, ...order.map(r => r.end)];
     const path = pathOf(seq);
     let t = 0; const stops = [];
