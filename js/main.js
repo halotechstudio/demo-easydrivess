@@ -8,6 +8,7 @@ import { createManager } from './apps/manager.js';
 import { createWhatsApp } from './apps/whatsapp.js';
 import { createHotel } from './apps/hotel.js';
 import { createOps } from './apps/ops.js';
+import { createManagerWeb } from './apps/mweb.js';
 import { SCENARIOS } from './scenarios.js';
 import { renderSheet } from './apps/sheets.js';
 import { decorate } from './ui/fx.js';
@@ -20,7 +21,7 @@ function boot() {
   s = createStore(); seed(s);
   apps = {
     rider: createRider(s), driver: createDriver(s), manager: createManager(s),
-    whatsapp: createWhatsApp(s), hotel: createHotel(s), ops: createOps(s),
+    whatsapp: createWhatsApp(s), hotel: createHotel(s), ops: createOps(s), mweb: createManagerWeb(s),
   };
   for (const a of Object.values(apps)) a.ui.dirty = markDirty;
   s.on('*', type => { if (type !== 'tick') markDirty(); });
@@ -31,7 +32,7 @@ function boot() {
 }
 
 const PHONES = [['rider', 'Rider'], ['driver', 'Driver'], ['manager', 'Manager'], ['whatsapp', 'WhatsApp']];
-const WEBS = [['hotel', 'Hotel desk', 'hotel.easydrivess.in'], ['ops', 'Operations console', 'ops.easydrivess.in']];
+const WEBS = [['mweb', 'Company portal', 'business.easydrivess.in/orbit'], ['hotel', 'Hotel desk', 'hotel.easydrivess.in'], ['ops', 'Operations console', 'ops.easydrivess.in']];
 
 let dirty = true;
 const markDirty = () => { dirty = true; };
@@ -63,7 +64,7 @@ function web(id, url) {
   const since = Math.round(performance.now() - a._enterAt);
   return h('div', { class: `browser${since < 900 ? ' enter' : ''}`, style: { height: presenter.view === 'live' ? '760px' : 'calc(100vh - 120px)', '--since': since } },
     h('div', { class: 'chrome' }, h('div', { class: 'lights' }, h('i'), h('i'), h('i')), h('div', { class: 'url' }, url)),
-    apps[id].render({ compact: presenter.view === 'live' && id === 'hotel' }), renderSheet(apps[id], { web: true }));
+    apps[id].render({ compact: presenter.view === 'live' && id !== 'ops' }), renderSheet(apps[id], { web: true }));
 }
 
 // Re-render one mount, keeping scroll positions and skipping while the user types in it.

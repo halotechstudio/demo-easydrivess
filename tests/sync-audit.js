@@ -7,7 +7,7 @@ export async function audit() {
   const ok = (name, pass, detail = '') => out.push({ name, pass: !!pass, detail: String(detail) });
   const paint = () => S.paint();
   const text = k => { paint(); return (document.querySelector(`[data-cap="${k}"]`)?.parentElement || document.querySelector(k === 'ops' ? '.webs > div:nth-child(2)' : '.webs > div:nth-child(1)'))?.innerText || ''; };
-  const webText = i => { paint(); return document.querySelectorAll('.webs > div')[i]?.innerText || ''; };
+  const webText = i => { paint(); return document.querySelectorAll('.webs > div')[i + 1]?.innerText || ''; };
   const run = (ms, step = 5000) => { for (let t = 0; t < ms; t += step) S.tick(step); };
   const until = (fn, max = 3 * 3600e3) => { for (let t = 0; t < max && !fn(); t += 5000) S.tick(5000); return fn(); };
   const imp = p => import(p);
@@ -91,7 +91,7 @@ export async function audit() {
   // 5. Hotel transfer → hotel billing + Ops; flight delay moves pickup everywhere.
   const g = st().hotels[0].guests.find(x => x.id === 'g2');
   A.hotel.open = g.id; A.hotel.ui.reset('arrivals'); paint();
-  const hb = [...document.querySelectorAll('.webs > div:nth-child(1) button')].find(b => b.textContent.includes('bill room'));
+  const hb = [...document.querySelectorAll('.webs > div:nth-child(2) button')].find(b => b.textContent.includes('bill room'));
   hb?.click(); paint();
   const hr = st().rides.find(r => r.guestId === g.id);
   ok('Hotel booking created', hr, hr?.id);

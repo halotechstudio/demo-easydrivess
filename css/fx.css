@@ -284,3 +284,7 @@ svg.ai :is(.ai-plane, .ai-trail, .ai-road, .ai-dot, .ai-hand), svg.ai .ai-win re
 .shortcuts .sc small { font-size: 11px; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .shortcuts .sc.add .sc-ic { color: var(--fg-2); border: 1px dashed rgba(255, 255, 255, .25); background: transparent; }
 .shortcuts .sc { border: 1px solid transparent; background: linear-gradient(180deg, rgba(34, 34, 46, .62), rgba(20, 20, 28, .58)) padding-box, linear-gradient(150deg, rgba(255, 255, 255, .28), rgba(255, 255, 255, .05) 30%, rgba(255, 255, 255, .14)) border-box; backdrop-filter: blur(20px); }
+
+/* Live view: company portal full width, hotel and ops side by side below */
+.webs { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+.webs > div:first-child { grid-column: 1 / -1; }
