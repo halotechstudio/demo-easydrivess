@@ -126,3 +126,7 @@ html { transition: background-color .4s; }
 /* Inline dark fills used in a few web tiles */
 [data-theme="light"] .hero .tile { background: rgba(255, 255, 255, .65) !important; }
 [data-theme="light"] .hero .tile .v { color: var(--fg); }
+
+/* Presenter bar wraps instead of hiding controls off-screen */
+.bar { flex-wrap: wrap; overflow: visible; row-gap: 10px; }
+.bar .tabs { overflow-x: auto; scrollbar-width: none; max-width: 100%; }
