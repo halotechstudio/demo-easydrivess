@@ -95,3 +95,19 @@ const AI = {
 export function animIcon(kind) {
   return h('svg', { class: `ai ai-${kind}`, viewBox: '0 0 24 24', width: 22, height: 22, fill: 'none', stroke: 'currentColor', 'stroke-width': 1.6, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', html: AI[kind] });
 }
+
+// Rider home: a live feature carousel in the hero style. Each frame shows real data for one feature;
+// tapping the card opens whichever feature is on screen at that moment (same clock as the CSS loop).
+export const FEATURE_SLOT = 3.2; // seconds per frame
+export function featureHero(frames, { glow = '' } = {}) {
+  const n = frames.length; const dur = n * FEATURE_SLOT;
+  const current = () => Math.floor((performance.now() / 1000 % dur) / FEATURE_SLOT) % n;
+  return h('button', { class: `hero story feature ${glow}`, style: `--n:${n};--dur:${dur}s;width:100%;display:block;margin-bottom:10px`, 'aria-label': 'Featured: tap to open', onclick: () => frames[current()].go() },
+    h('div', { class: 'story-stack' }, frames.map((f, i) =>
+      h('div', { class: 'story-frame', style: `--i:${i}` },
+        h('div', { class: 'num-label' }, f.label),
+        h('div', { class: 'num-row' }, dotNumber(f.num, { size: 9.5, off: false, fit: 200 })),
+        h('div', { class: 'num-label', style: { margin: '6px 0 0' } }, f.unit),
+        sentence(f.sent)))),
+    h('div', { class: 'story-title', style: { marginTop: '10px' } }, h('span', { class: 'story-leds' }, frames.map((_, i) => h('i', { style: `--i:${i}` })))));
+}

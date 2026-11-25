@@ -1,4 +1,4 @@
-import { explainer, animIcon } from '../ui/explain.js';
+import { explainer, animIcon, featureHero } from '../ui/explain.js';
 import { h, icon, map, scrollNumber, dotNumber, sentence, topbar, adCard, btn, carArt, pill, initials, tile } from '../ui/kit.js';
 import { inr, fmtTime, IST, unread } from '../engine/store.js';
 import { places, placeList, route } from '../engine/geo.js';
@@ -77,15 +77,23 @@ export function createRider(s) {
             h('span', { class: 'btn dark sm', onclick: e => { e.stopPropagation(); topUpSheet(app, s, app.who); } }, icon('plus', 15), 'Add')),
           (r.company || r.workCompany) && h('div', { class: 'tabs-sm', style: { marginBottom: '12px' } },
             ['personal', 'work'].map(p => h('button', { 'aria-pressed': String(app.profile === p), onclick: () => { app.profile = p; ui.dirty(); } }, p === 'personal' ? 'Personal' : `Work · ${st.companies.find(c => c.id === (r.company || r.workCompany)).name}`))),
-          // Live hero: how soon a car can be at your door, for the trip you most likely want next. One tap books it.
+          // Live feature carousel: each frame is real data for one feature; tap opens the one on screen.
           (() => {
             const cls = me().prefs?.cls || app.lastCls; const eta = etaFor(s, cls, rebook.pickup);
             const near = st.drivers.filter(d => d.online && !d.busy).length;
-            return h('button', { class: 'hero', style: { width: '100%', marginBottom: '10px', display: 'block' }, onclick: () => ui.go('book', { pickup: rebook.pickup, drop: rebook.drop, trip: 'city' }) },
-              h('div', { class: 'num-label' }, eta != null ? `A ${cls} can be at your door in` : `No ${cls} free nearby`),
-              eta != null ? scrollNumber(String(eta), [eta + 2, eta + 1, Math.max(1, eta - 1), Math.max(1, eta - 2)].map(String), { size: 10 }) : h('div', { class: 'num-row' }, dotNumber('--', { size: 10, off: false })),
-              h('div', { class: 'num-label', style: { marginTop: '6px', marginBottom: 0 } }, 'min'),
-              sentence([`${near} cars free around ${placeName(rebook.pickup)}. To ${placeName(rebook.drop)} `, { chip: inr(rbEst.fare) }, ', tap to book.']));
+            const air = estimate(s, { pickup: here(), drop: 'rgia', cls, trip: 'airport' });
+            const ic = estimate(s, { pickup: here(), drop: 'vijayawada', cls: 'SUV', trip: 'intercity' });
+            const w = st.wallets[app.who]; const top = upcoming[0];
+            const frames = [
+              { label: eta != null ? `A ${cls} can be at your door in` : `No ${cls} free nearby`, num: eta != null ? String(eta) : '--', unit: 'min', sent: [`${near} cars free around ${placeName(rebook.pickup)}. To ${placeName(rebook.drop)} `, { chip: inr(rbEst.fare) }, ', tap to book.'], go: () => ui.go('book', { pickup: rebook.pickup, drop: rebook.drop, trip: 'city' }) },
+              { label: 'Airport drop to RGIA', num: inr(air.fare).replace(/,/g, ','), unit: `${air.min} min · flight tracked`, sent: ['We plan around your flight and wait ', { chip: '45 min free' }, ' on pickups.'], go: () => ui.go('airport', { pickup: here() }) },
+              { label: 'Intercity · Vijayawada', num: '275', unit: 'km door to door', sent: ['SUV one way from ', { chip: inr(ic.fare) }, '. Round trips with the same driver.'], go: () => ui.go('intercity', { pickup: here() }) },
+              { label: top ? `${top.templateId ? 'Repeating' : 'Scheduled'} ride` : 'Schedule ahead', num: top ? fmtTime(top.at).replace(/ (AM|PM)/, '') : '9:00', unit: top ? fmtTime(top.at).slice(-2) : 'AM tomorrow', sent: top ? [`${top.cls} to ${placeName(top.drop)}, driver assigned `, { chip: '20 min before' }, '.'] : ['Book once, ', { chip: 'repeat every weekday' }, '. We dispatch it for you.'], go: () => ui.go('schedule', { pickup: here() }) },
+              w ? { label: 'Easydrivess Money', num: inr(w.balance), unit: 'balance', sent: ['Pay in one tap. Refunds land ', { chip: 'instantly' }, '.'], go: () => ui.reset('wallet') }
+                : { label: 'Work rides', num: '0', unit: 'you pay', sent: ['Rides are billed to ', { chip: 'your company' }, '.'], go: () => ui.go('p-work') },
+              { label: 'Safety on every ride', num: '112', unit: 'one tap away', sent: [`${me().contacts.length} trusted contact${me().contacts.length === 1 ? '' : 's'} get a `, { chip: 'live link' }, ' on SOS.'], go: () => ui.go('safety') },
+            ];
+            return featureHero(frames);
           })(),
           next && h('button', { class: 'card flex', style: { width: '100%', textAlign: 'left', gap: '12px', marginBottom: '10px', padding: '12px 14px' }, onclick: () => ui.go('p-repeat') },
             h('span', { class: 'ic' }, icon(next.templateId ? 'repeat' : 'clock')),

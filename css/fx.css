@@ -256,3 +256,12 @@ svg.ai :is(.ai-plane, .ai-trail, .ai-road, .ai-dot, .ai-hand), svg.ai .ai-win re
 @keyframes storyled { 0%, 32% { background: var(--lavender); box-shadow: 0 0 8px var(--periwinkle); } 34%, 100% { background: rgba(255, 255, 255, .15); box-shadow: none; } }
 @keyframes storyled4 { 0%, 24% { background: var(--lavender); box-shadow: 0 0 8px var(--periwinkle); } 26%, 100% { background: rgba(255, 255, 255, .15); box-shadow: none; } }
 @media (prefers-reduced-motion: reduce) { .story-frame { animation: none !important; } .story-frame:not(:first-child) { display: none; } .story-frame:first-child { opacity: 1; } }
+
+/* Feature carousel (6 frames) on the rider home */
+.hero.story[style*="--n:6"] .story-frame { animation-name: storyframe6; }
+.hero.story[style*="--n:6"] .story-leds i { animation-name: storyled6; }
+@keyframes storyframe6 { 0% { opacity: 0; transform: translateY(10px); filter: blur(6px); } 2%, 14.5% { opacity: 1; transform: none; filter: none; } 16.6%, 100% { opacity: 0; transform: translateY(-8px); filter: blur(6px); } }
+@keyframes storyled6 { 0%, 16% { background: var(--lavender); box-shadow: 0 0 8px var(--periwinkle); width: 16px; border-radius: 3px; } 17%, 100% { background: rgba(255, 255, 255, .15); box-shadow: none; } }
+.story-leds i { transition: width .3s; }
+.hero.feature { cursor: pointer; text-align: center; }
+.hero.feature .story-frame { pointer-events: none; }
