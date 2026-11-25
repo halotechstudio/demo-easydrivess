@@ -55,6 +55,7 @@ export function bookBatch(s, plan, { payer, trip = 'city', at = null, channel = 
   }));
   st.stats.carsSavedToday += plan.carsSaved; st.stats.savedToday += plan.saved;
   for (const id of plan.cars.flatMap(c => c.riders)) notify(s, 'rider', id, 'Cab booked', `${bookedBy || 'Your manager'} booked your ride${at ? ' for ' + fmtTime(at) : ''}. Driver details follow.`);
+  if (st.companies.some(c => c.id === payer)) notify(s, 'manager', payer, 'Team rides booked', `${plan.sentence} ${inr(plan.total)} paid from the wallet.`, 'good', 'wallet');
   notify(s, 'ops', 'ops', 'Corporate batch paid', `${plan.sentence} ${inr(plan.total)} received.`, 'good');
   s.dispatch('batch', { batchId, ids });
   return { batchId, ids };
@@ -107,6 +108,7 @@ export function acceptOffer(s, rideId) {
   r.approach = { points: [{ ...d.pos }, mid, { x: target.x, y: target.y }], km: Math.round(km * 10) / 10, min: Math.max(3, minutesFor(km) - 2), progress: 0 };
   r.status = 'arriving'; r.log.push({ at: st.now, text: `${d.name} accepted` });
   for (const id of r.riderIds) notify(s, 'rider', id, 'Driver on the way', `${d.name} · ${car.model} · ${car.plate}. Arriving in ${r.approach.min} min.`);
+  if (r.batchId && st.companies.some(c => c.id === r.payer)) notify(s, 'manager', r.payer, 'Driver assigned', `${d.name} · ${car.plate} for ${r.riderIds.length} rider${r.riderIds.length > 1 ? 's' : ''}.`, 'info', 'ride');
   waOnUpdate(s, r, 'assigned');
   s.dispatch('ride', r);
 }
