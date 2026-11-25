@@ -72,26 +72,6 @@ export function createRider(s) {
             h('div', { class: 'flex', style: { gap: '8px' } },
               bell(),
               h('button', { class: 'avatar lg', 'aria-label': 'Profile', onclick: () => ui.reset('profile') }, initials(r.name)))),
-          // Where to: highlighted widget first in the stack, with the original saved-place chips under it.
-          h('div', { class: 'where-panel', style: { marginBottom: '12px' } },
-            h('button', { class: 'searchbar hi', onclick: () => ui.go('where', { pickup: here() }) },
-              h('span', { class: 'sb-ic' }, icon('search')), h('span', { class: 'grow' }, h('b', null, 'Where to?'), h('small', null, `From ${placeName(here())} · current location`)),
-              h('span', { class: 'sb-now', onclick: e => { e.stopPropagation(); ui.go('schedule', { pickup: here() }); } }, icon('clock', 14), 'Now')),
-            h('div', { class: 'saved' }, r.saved.filter(x => x.place !== here()).map(x => h('button', { onclick: () => ui.go('book', { pickup: here(), drop: x.place, trip: x.place === 'rgia' ? 'airport' : 'city' }) }, icon(x.label === 'Home' ? 'home' : x.label === 'Airport' ? 'plane' : 'work'), x.label))),
-            // Frequent trips: seeded history plus every completed ride, most common first. One tap books it.
-            (() => {
-              const tally = {};
-              for (const f of r.freq || []) tally[`${f.pickup}>${f.drop}`] = { ...f };
-              for (const x of myRides().filter(x => x.status === 'completed' && !x.history)) { const k = `${x.pickup}>${x.drop}`; tally[k] ||= { pickup: x.pickup, drop: x.drop, count: 0, cls: x.cls }; tally[k].count++; tally[k].cls = x.cls; }
-              const top = Object.values(tally).filter(t => t.pickup === here()).sort((a, b) => b.count - a.count).slice(0, 3);
-              if (!top.length) return null;
-              return h('div', { class: 'card mt12', style: { padding: '4px 14px' } }, h('div', { class: 'card-head', style: { margin: '8px 0 2px' } }, h('h3', null, 'Frequent trips')),
-                top.map(t => { const trip = t.drop === 'rgia' ? 'airport' : 'city'; const e = estimate(s, { pickup: t.pickup, drop: t.drop, cls: t.cls, trip });
-                  return h('button', { class: 'row', style: { width: '100%', textAlign: 'left' }, onclick: () => { app.pick = t.cls; ui.go('book', { pickup: t.pickup, drop: t.drop, trip }); } },
-                    h('span', { class: 'ic' }, icon(trip === 'airport' ? 'plane' : 'repeat')),
-                    h('div', { class: 'grow' }, h('div', { class: 't' }, `${placeName(t.pickup)} → ${placeName(t.drop)}`), h('div', { class: 's' }, `${t.count} trips · usually ${t.cls} · ${e.min} min`)),
-                    h('div', { class: 'strong' }, inr(e.fare))); }));
-            })()),
           !work() && s.get().wallets[app.who] && h('button', { class: 'card flex', style: { width: '100%', textAlign: 'left', gap: '12px', marginBottom: '10px', padding: '12px 14px' }, onclick: () => ui.reset('wallet') },
             h('span', { class: 'ic' }, icon('wallet')), h('span', { class: 'grow' }, h('div', { class: 'label' }, 'Easydrivess Money'), h('div', { style: { fontWeight: 600, fontSize: '16px' } }, inr(s.get().wallets[app.who].balance))),
             h('span', { class: 'btn dark sm', onclick: e => { e.stopPropagation(); topUpSheet(app, s, app.who); } }, icon('plus', 15), 'Add')),
@@ -119,6 +99,8 @@ export function createRider(s) {
             h('span', { class: 'ic' }, icon(next.templateId ? 'repeat' : 'clock')),
             h('span', { class: 'grow' }, h('div', { style: { fontWeight: 600, fontSize: '14.5px' } }, `${next.templateId ? 'Repeating' : 'Scheduled'} · ${fmtTime(next.at)}`), h('div', { class: 'label' }, `${next.cls} to ${placeName(next.drop)} · ${inr(next.fare)} · driver assigned 20 min before`)),
             h('span', { class: 'pill violet' }, 'Set')),
+          h('button', { class: 'searchbar', onclick: () => ui.go('where', { pickup: here() }) }, icon('search'), 'Where to?'),
+          h('div', { class: 'saved' }, r.saved.filter(x => x.place !== here()).map(x => h('button', { onclick: () => ui.go('book', { pickup: here(), drop: x.place, trip: x.place === 'rgia' ? 'airport' : 'city' }) }, icon(x.label === 'Home' ? 'home' : x.label === 'Airport' ? 'plane' : 'work'), x.label))),
           h('div', { class: 'choices mt16' },
             [['city', 'City', 'city'], ['airport', 'Airport', 'plane'], ['intercity', 'Intercity', 'route'], ['schedule', 'Schedule', 'calendar']].map(([k, l, ic]) =>
               h('button', { class: 'choice', onclick: () => k === 'city' ? ui.go('where', { pickup: here() }) : ui.go(k, { pickup: here() }) }, animIcon(k), l))),
