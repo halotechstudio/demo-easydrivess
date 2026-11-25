@@ -1,6 +1,6 @@
 // Animated explainers: short looping illustrations that show how a feature works, in the Welno style.
 // Motion is pure CSS (see fx.css .ex-*) and resumes from the live clock so repaints never restart it.
-import { h, icon } from './kit.js';
+import { h, icon, dotNumber, sentence } from './kit.js';
 
 const S = (w, hh, inner) => `<svg viewBox="0 0 ${w} ${hh}" width="100%" height="${hh}" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">${inner}</svg>`;
 const road = '<path d="M14 92 C 90 92, 120 40, 200 48 S 300 92, 330 86" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="10" stroke-linecap="round"/><path d="M14 92 C 90 92, 120 40, 200 48 S 300 92, 330 86" fill="none" stroke="#8F8CF2" stroke-width="2.5" stroke-dasharray="4 7" class="ex-dash"/>';
@@ -55,17 +55,36 @@ const COPY = {
   fare: ['How your fare is set', 'Distance and time, then the car\'s age and today\'s condition score. You never pay more than shown.'],
 };
 
-// A dismissible explainer card. `app.seenEx` remembers which were closed; a replay chip brings one back.
+// Story heroes: the explainer uses the same anatomy as the live hero (label, glowing dot-matrix number,
+// unit, one sentence with chips) and steps through the feature frame by frame. Pure CSS timing, phase-locked to --clock.
+const STORY = {
+  pool: { glow: '', frames: [['7', 'people booked', ['Seven colleagues, seven homes, ', { chip: 'one office' }, '.']], ['3', 'cars sent', ['Same-route riders share a car. ', { chip: 'Stops ordered' }, ' for you.']], ['₹617', 'saved', ['Against 7 separate cabs. Detour ', { chip: 'capped at 20%' }, '.']]] },
+  scheduled: { glow: 'condition', frames: [['6:30', 'tomorrow', ['A booking opens for your ', { chip: 'Sedan' }, '.']], ['₹640', 'you earn', ['Tap accept and ', { chip: "it's yours" }, '. No one else can take it.']], ['30', 'min reminder', ['We nudge you, then send it ', { chip: '20 min before' }, '.']]] },
+  shine: { glow: 'condition', frames: [['4', 'photos', ['Front, rear seat, boot, ', { chip: 'you in uniform' }, '.']], ['40', 'seconds', ['Checked automatically by ', { chip: 'Easydrivess Vision' }, '.']], ['95', 'condition', ['Score 90+ unlocks ', { chip: 'premium rides' }, ' and +5% fares.']]] },
+  whatsapp: { glow: 'money', frames: [['0', 'apps to install', ['Riders just say ', { chip: 'hi' }, ' to Easydrivess on WhatsApp.']], ['4', 'taps', ['Trip type, pickup pin, destination, ', { chip: 'car' }, '.']], ['₹201', 'UPI link', ['Pay in chat or to the driver. ', { chip: 'Driver card' }, ' arrives with the OTP.']]] },
+  fare: { glow: '', frames: [['₹198', 'base fare', ['Distance and time for a ', { chip: 'Sedan' }, '.']], ['1.05', 'car age', ['A 2024 car, ', { chip: 'under 2 years' }, ' old.']], ['1.05', 'condition', ['Cleaned this morning, score ', { chip: '93' }, '.']], ['₹222', 'your fare', ['Base × age × condition. ', { chip: 'Never more' }, ' than shown.']]] },
+};
+const TITLE = { pool: 'Smart batching', scheduled: 'Claim rides ahead', shine: 'Shine Check', whatsapp: 'Book without the app', fare: 'How your fare is set' };
+
+function storyHero(kind) {
+  const sp = STORY[kind]; const n = sp.frames.length; const slot = 2.8;
+  return h('div', { class: `hero story ${sp.glow}`, style: `--n:${n};--dur:${n * slot}s` },
+    h('div', { class: 'story-title' }, ledDots(n, slot), h('span', null, TITLE[kind])),
+    h('div', { class: 'story-stack' }, sp.frames.map(([num, unit, sent], i) =>
+      h('div', { class: 'story-frame', style: `--i:${i}` },
+        h('div', { class: 'num-row' }, dotNumber(num, { size: 9, off: false, fit: 190 })),
+        h('div', { class: 'num-label', style: { margin: '6px 0 0' } }, unit),
+        sentence(sent)))));
+}
+function ledDots(n, slot) { return h('span', { class: 'story-leds' }, Array.from({ length: n }, (_, i) => h('i', { style: `--i:${i}` }))); }
+
+// A dismissible explainer. `app.seenEx` remembers which were closed; a replay chip brings one back.
 export function explainer(app, kind, { force = false } = {}) {
   app.seenEx ||= {};
-  if (app.seenEx[kind] && !force) return h('button', { class: 'ex-replay', onclick: () => { app.seenEx[kind] = false; app.ui.dirty(); } }, icon('play', 12), `How it works · ${COPY[kind][0]}`);
-  return h('div', { class: 'explain glass' },
-    h('div', { class: 'ex-art', html: ART[kind] }),
-    h('div', { class: 'flex between', style: { alignItems: 'flex-start', gap: '10px' } },
-      h('div', null, h('b', null, COPY[kind][0]), h('p', null, COPY[kind][1])),
-      !force && h('button', { class: 'iconbtn', 'aria-label': 'Close', style: { width: '30px', height: '30px', flex: 'none' }, onclick: () => { app.seenEx[kind] = true; app.ui.dirty(); } }, icon('close', 14))));
+  if (app.seenEx[kind] && !force) return h('button', { class: 'ex-replay', onclick: () => { app.seenEx[kind] = false; app.ui.dirty(); } }, icon('play', 12), `How it works · ${TITLE[kind]}`);
+  return h('div', { class: 'explain-wrap' }, storyHero(kind),
+    !force && h('button', { class: 'iconbtn ex-close', 'aria-label': 'Close', onclick: () => { app.seenEx[kind] = true; app.ui.dirty(); } }, icon('close', 14)));
 }
-
 // Animated icons for the rider's trip-type buttons. Each loops gently and hints at what it books.
 const AI = {
   city: `<path d="M4 20V9l5-3v14M9 20V4h7v16M16 20v-9l4 2v7M3 20h18"/><g class="ai-win"><rect x="11.5" y="7" width="1.6" height="1.6" rx=".3"/><rect x="11.5" y="10.5" width="1.6" height="1.6" rx=".3"/><rect x="11.5" y="14" width="1.6" height="1.6" rx=".3"/><rect x="5.6" y="11" width="1.4" height="1.4" rx=".3"/><rect x="17.4" y="14" width="1.4" height="1.4" rx=".3"/></g>`,

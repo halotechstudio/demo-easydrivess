@@ -235,3 +235,24 @@ body::before { animation: drift2 30s ease-in-out infinite alternate; }
 
 /* Shorthand 'animation' resets the delay; re-apply the live-clock phase so repaints never restart these. */
 svg.ai :is(.ai-plane, .ai-trail, .ai-road, .ai-dot, .ai-hand), svg.ai .ai-win rect:first-child, .ex-art .ex-dash, .ex-art .ex-blink { animation-delay: calc(var(--clock, 0) * -1ms); }
+
+/* ============ Story heroes (explainers in the live-hero style) ============ */
+.explain-wrap { position: relative; margin-top: 10px; }
+.explain-wrap .ex-close { position: absolute; top: 10px; right: 10px; width: 28px; height: 28px; z-index: 2; }
+.hero.story { padding: 14px 16px 18px; }
+.story-title { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12.5px; color: var(--fg-2); letter-spacing: .02em; }
+.story-stack { display: grid; margin-top: 8px; }
+.story-frame { grid-area: 1 / 1; opacity: 0; animation: storyframe var(--dur) linear infinite;
+  animation-delay: calc(var(--clock, 0) * -1ms + var(--i) * var(--dur) / var(--n)); }
+.story-frame .sentence { min-height: 3.1em; margin-bottom: 0; }
+/* Each frame owns 1/n of the loop: rise in, hold, blur out. Written for up to 4 frames. */
+.hero.story[style*="--n:3"] .story-frame { animation-name: storyframe3; }
+.hero.story[style*="--n:4"] .story-frame { animation-name: storyframe4; }
+@keyframes storyframe3 { 0% { opacity: 0; transform: translateY(10px); filter: blur(6px); } 4%, 29% { opacity: 1; transform: none; filter: none; } 33%, 100% { opacity: 0; transform: translateY(-8px); filter: blur(6px); } }
+@keyframes storyframe4 { 0% { opacity: 0; transform: translateY(10px); filter: blur(6px); } 3%, 22% { opacity: 1; transform: none; filter: none; } 25%, 100% { opacity: 0; transform: translateY(-8px); filter: blur(6px); } }
+.story-leds { display: inline-flex; gap: 4px; }
+.story-leds i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, .15); animation: storyled var(--dur) linear infinite; animation-delay: calc(var(--clock, 0) * -1ms + var(--i) * var(--dur) / var(--n)); }
+.hero.story[style*="--n:4"] .story-leds i { animation-name: storyled4; }
+@keyframes storyled { 0%, 32% { background: var(--lavender); box-shadow: 0 0 8px var(--periwinkle); } 34%, 100% { background: rgba(255, 255, 255, .15); box-shadow: none; } }
+@keyframes storyled4 { 0%, 24% { background: var(--lavender); box-shadow: 0 0 8px var(--periwinkle); } 26%, 100% { background: rgba(255, 255, 255, .15); box-shadow: none; } }
+@media (prefers-reduced-motion: reduce) { .story-frame { animation: none !important; } .story-frame:not(:first-child) { display: none; } .story-frame:first-child { opacity: 1; } }
