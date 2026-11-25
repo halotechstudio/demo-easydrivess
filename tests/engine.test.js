@@ -5,7 +5,7 @@ import { places, distanceKm, route } from '../js/engine/geo.js';
 import { seed } from '../js/engine/seed.js';
 import { conditionScore, quote, classEligible, DAY } from '../js/engine/pricing.js';
 import { planBatch } from '../js/engine/batching.js';
-import { bookRide, tick, acceptOffer, cancelRide } from '../js/engine/rides.js';
+import { bookRide, tick, acceptOffer, cancelRide, reserveRide, releaseRide } from '../js/engine/rides.js';
 import { topUp, charge, requestPayout, approvePayouts, rejectPayout } from '../js/engine/wallet.js';
 import { pickAd, recordImpression } from '../js/engine/ads.js';
 import { waHandle } from '../js/engine/whatsapp.js';
@@ -270,6 +270,23 @@ test('WhatsApp booking keeps the fare shown on the class card', () => {
   assert.equal(r.fare, card.fare);
   for (let i = 0; i < 10; i++) tick(s, 2000);
   assert.ok(s.get().rides.find(x => x.chatId === chat).fare <= card.fare);
+});
+
+test('a driver can reserve a scheduled ride and gets it at dispatch time', () => {
+  const s = fresh(); const st = s.get();
+  const id = bookRide(s, { riderId: 'r2', pickup: 'banjara', drop: 'rgia', cls: 'Sedan', trip: 'airport', at: st.now + 3 * 3600e3 });
+  assert.equal(reserveRide(s, id, 'd03').ok, true);
+  assert.equal(reserveRide(s, id, 'd02').ok, false, 'already reserved');
+  for (let i = 0; i < 200 && st.rides.find(r => r.id === id).status === 'scheduled'; i++) tick(s, 60e3);
+  for (let i = 0; i < 3; i++) tick(s, 1000);
+  assert.equal(st.rides.find(r => r.id === id).driverId, 'd03');
+});
+
+test('a released reservation goes back to normal dispatch', () => {
+  const s = fresh(); const st = s.get();
+  const id = bookRide(s, { riderId: 'r2', pickup: 'banjara', drop: 'rgia', cls: 'Sedan', trip: 'airport', at: st.now + 3 * 3600e3 });
+  reserveRide(s, id, 'd03'); releaseRide(s, id, 'd03');
+  assert.equal(st.rides.find(r => r.id === id).reservedBy, null);
 });
 
 test('WhatsApp books a ride in 4 taps after hi', () => {

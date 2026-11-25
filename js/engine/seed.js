@@ -1,6 +1,6 @@
 import { defaultPricing, DAY } from './pricing.js';
 import { places } from './geo.js';
-import { materialiseTemplates } from './rides.js';
+import { materialiseTemplates, bookRide } from './rides.js';
 
 const H = 3600e3;
 
@@ -138,10 +138,10 @@ export function seed(s) {
   ];
 
   st.ads = [
-    { id: 'A1', advertiser: 'Kaveri Bank', title: 'Travel card, 3% back on every ride', sub: 'Zero joining fee this month', cta: 'Apply', tone: 'majorelle', slots: ['rider-home', 'rider-complete', 'manager-home'], on: true, impressions: 4210, clicks: 96, cpm: 300 },
-    { id: 'A2', advertiser: 'Paradise Biryani', title: 'Biryani at your door in 30 minutes', sub: 'Order from the trip screen', cta: 'Order', tone: 'ember', slots: ['rider-complete', 'rider-finding', 'rider-trips'], on: true, impressions: 9870, clicks: 412, cpm: 220 },
-    { id: 'A3', advertiser: 'ShieldSure', title: 'Cab insurance from ₹19 a day', sub: 'Made for full-time drivers', cta: 'Get cover', tone: 'aqua', slots: ['driver-home', 'driver-earnings'], on: true, impressions: 3120, clicks: 140, cpm: 90 },
-    { id: 'A4', advertiser: 'Inorbit Mall', title: 'Weekend sale, up to 50% off', sub: 'Ride there with Easydrivess', cta: 'See offers', tone: 'lavender', slots: ['rider-home', 'rider-finding'], on: true, impressions: 2650, clicks: 71, cpm: 180 },
+    { id: 'A1', advertiser: 'Kaveri Bank', title: 'Travel card, 3% back on every ride', sub: 'Zero joining fee this month', cta: 'Apply', tone: 'majorelle', photo: 'https://images.unsplash.com/photo-1609429019995-8c40f49535a5?auto=format&fit=crop&w=720&h=300&q=70', slots: ['rider-home', 'rider-complete', 'manager-home'], on: true, impressions: 4210, clicks: 96, cpm: 300 },
+    { id: 'A2', advertiser: 'Paradise Biryani', title: 'Biryani at your door in 30 minutes', sub: 'Order from the trip screen', cta: 'Order', tone: 'ember', photo: 'https://images.unsplash.com/photo-1631515243349-e0cb75fb8d3a?auto=format&fit=crop&w=720&h=300&q=70', slots: ['rider-complete', 'rider-finding', 'rider-trips'], on: true, impressions: 9870, clicks: 412, cpm: 220 },
+    { id: 'A3', advertiser: 'ShieldSure', title: 'Cab insurance from ₹19 a day', sub: 'Made for full-time drivers', cta: 'Get cover', tone: 'aqua', photo: 'https://images.unsplash.com/photo-1787571354001-b2c975845e09?auto=format&fit=crop&w=720&h=300&q=70', slots: ['driver-home', 'driver-earnings'], on: true, impressions: 3120, clicks: 140, cpm: 90 },
+    { id: 'A4', advertiser: 'Inorbit Mall', title: 'Weekend sale, up to 50% off', sub: 'Ride there with Easydrivess', cta: 'See offers', tone: 'lavender', photo: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=720&h=300&q=70', slots: ['rider-home', 'rider-finding'], on: true, impressions: 2650, clicks: 71, cpm: 180 },
   ];
 
   st.templates = [
@@ -166,5 +166,17 @@ export function seed(s) {
   }
   st.stats = { carsSavedToday: 6, savedToday: 2840, waBookingsToday: 1 };
   materialiseTemplates(s);
+  seedUpcoming(s, now);
+  st.notifications = st.notifications.filter(n => n.app !== 'ops');
   return s;
+}
+
+// Upcoming bookings drivers can claim in advance (Driver → Scheduled).
+function seedUpcoming(s, now) {
+  const list = [
+    ['r2', 'banjara', 'rgia', 'Sedan', 'airport', 3.5], ['r3', 'secunderabad', 'rgia', 'Sedan', 'airport', 6],
+    ['r4', 'kondapur', 'vijayawada', 'SUV', 'intercity', 22], ['r5', 'gachibowli', 'rgia', 'Hatchback', 'airport', 24.5],
+    ['r2', 'jubilee', 'warangal', 'Sedan', 'intercity', 27], ['r3', 'begumpet', 'hitec', 'Luxury', 'city', 5],
+  ];
+  for (const [riderId, pickup, drop, cls, trip, hrs] of list) bookRide(s, { riderId, pickup, drop, cls, trip, channel: 'app', at: now + hrs * 3600e3 });
 }

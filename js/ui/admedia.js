@@ -30,3 +30,10 @@ export function adMediaURL(ad) {
   const key = ad.art || BY_AD[ad.id] || BY_TONE[ad.tone] || 'generic';
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(ART[key]);
 }
+
+// Layered background: the photo (Unsplash or uploaded) over the drawn art, so a failed load still shows a banner.
+export function adBackground(ad) {
+  const art = adMediaURL({ ...ad, media: null });
+  const top = ad.media || ad.photo;
+  return top ? `url("${top}"), url("${art}")` : `url("${art}")`;
+}

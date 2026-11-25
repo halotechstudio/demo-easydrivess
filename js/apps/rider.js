@@ -1,3 +1,4 @@
+import { explainer } from '../ui/explain.js';
 import { h, icon, map, scrollNumber, dotNumber, sentence, topbar, adCard, btn, carArt, pill, initials, tile } from '../ui/kit.js';
 import { inr, fmtTime, IST, unread } from '../engine/store.js';
 import { places, placeList, route } from '../engine/geo.js';
@@ -191,6 +192,7 @@ export function createRider(s) {
             h('div', { class: 'num-label', style: { marginBottom: '8px' } }, `${cls} fare`),
             scrollNumber('₹' + fares[i], [fares[i - 2], fares[i - 1], fares[i + 1], fares[i + 2]], { size: 7.5 }),
             sentence([e.sentence.replace(/^₹[\d,]+\. /, '').replace(/\.$/, '') + '. Condition ', { chip: String(e.score ?? '—') }, `. ${e.km} km, about ${e.min} min.`])),
+          explainer(app, 'fare'),
           h('div', { class: 'classes mt12' }, CLASSES.map(c => {
             const x = ests[c]; const cs = x.car ? conditionScore(x.car, st.now) : null;
             return h('button', { class: 'cls', 'aria-pressed': String(c === cls), onclick: () => { app.pick = c; ui.dirty(); } },

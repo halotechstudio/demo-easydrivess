@@ -4,13 +4,50 @@ import { led, ledStrip } from '../ui/fx.js';
 import { inr, fmtTime, inbox, unread, markRead } from '../engine/store.js';
 import { payoutCheck, requestPayout, PAYOUT_SPEEDS, MIN_PAYOUT, DAILY_PAYOUT_LIMIT, addAccount, setPrimary } from '../engine/wallet.js';
 import { openSheet, closeSheet, flash, confirmSheet, callSheet } from './sheets.js';
+import { reserveRide, releaseRide } from '../engine/rides.js';
+import { classEligible } from '../engine/pricing.js';
+import { places } from '../engine/geo.js';
+import { explainer } from '../ui/explain.js';
 
 const toggle = (on, fn, label) => h('button', { class: 'toggle', 'aria-pressed': String(!!on), 'aria-label': label, onclick: fn });
 const STEP = [['requested', 'Requested'], ['approved', 'Approved'], ['sent', 'Sent to bank'], ['paid', 'Credited']];
 
 export function driverAccountScreens({ s, app, ui, me, car, tabbar }) {
   const w = app.wd ||= { amount: null, acct: null, speed: 'instant' };
+  const nm = id => places[id]?.name.split(' · ')[0] || id;
+  const dayLabel = at => { const d = Math.floor((at + 5.5 * 3600e3) / 864e5) - Math.floor((st().now + 5.5 * 3600e3) / 864e5); return d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : `In ${d} days`; };
+  function st() { return s.get(); }
+  function rideCard(r, mine) {
+    const d = me(); const earn = Math.round(r.fare * (1 - st().pricing.commission));
+    return h('div', { class: 'card mt12' },
+      h('div', { class: 'flex between' },
+        h('div', null, h('div', { class: 'label' }, `${dayLabel(r.at)} · ${r.trip === 'airport' ? 'Airport' : r.trip === 'intercity' ? 'Intercity' : 'City'} · ${r.cls}`), h('div', { style: { fontSize: '26px', fontWeight: 300, letterSpacing: '-.02em' } }, fmtTime(r.at))),
+        h('div', { style: { textAlign: 'right' } }, h('div', { class: 'label' }, 'You earn'), h('div', { style: { fontSize: '20px', fontWeight: 600, color: 'var(--aqua)' } }, inr(earn)))),
+      h('div', { class: 'small mt8' }, `${nm(r.pickup)} → ${nm(r.drop)} · ${r.km} km · about ${r.min} min`),
+      h('div', { class: 'mt12' }, mine
+        ? h('div', { class: 'flex', style: { gap: '8px' } }, pill('Yours', 'good'), h('span', { class: 'grow label' }, 'Sent to you 20 min before pickup'), h('button', { class: 'btn dark sm', onclick: () => confirmSheet(app, { title: 'Release this booking?', sub: 'It goes back to other drivers. Releasing often lowers your priority.', confirm: 'Release', danger: true, run: () => { releaseRide(s, r.id, d.id); flash(app, 'Released', 'The booking is open to other drivers.', 'info'); } }) }, 'Release'))
+        : btn('Accept booking', { kind: 'primary', arrow: true, onClick: () => { const res = reserveRide(s, r.id, d.id); res.ok ? flash(app, 'Booking confirmed', `${nm(r.pickup)} at ${fmtTime(r.at)} is yours.`) : flash(app, 'Could not accept', res.why, 'warn'); } })));
+  }
   return {
+    scheduled() {
+      const d = me(); const c = car();
+      const up = st().rides.filter(r => r.status === 'scheduled' && r.at > st().now).sort((a, b) => a.at - b.at);
+      const mine = up.filter(r => r.reservedBy === d.id);
+      const open = up.filter(r => !r.reservedBy && classEligible(c, st().now).includes(r.cls) && (r.trip !== 'intercity' || d.prefs.intercity) && (r.trip !== 'airport' || d.prefs.airport));
+      const earn = mine.reduce((a, r) => a + Math.round(r.fare * (1 - st().pricing.commission)), 0);
+      return [topbar('Scheduled'),
+        h('div', { class: 'scroll' },
+          h('div', { class: 'hero condition' }, h('div', { class: 'num-label' }, 'Booked ahead'),
+            h('div', { class: 'num-row' }, dotNumber(String(mine.length), { size: 10, off: false })),
+            sentence(mine.length ? ['Rides you have claimed. ', { chip: `${inr(earn)} lined up` }] : [`${open.length} rides open for your ${c.cls}. `, { chip: 'Claim one' }])),
+          explainer(app, 'scheduled'),
+          mine.length > 0 && h('div', { class: 'card-head mt16' }, h('h3', null, 'Your bookings')),
+          mine.map(r => rideCard(r, true)),
+          h('div', { class: 'card-head mt16' }, h('h3', null, 'Open for you')),
+          open.length ? open.map(r => rideCard(r, false)) : h('div', { class: 'card small' }, 'No open bookings for your car right now. New ones appear as riders schedule.')),
+        tabbar('scheduled')];
+    },
+
     withdraw() {
       const d = me();
       if (w.amount == null || w.amount > d.wallet) w.amount = Math.max(0, d.wallet - PAYOUT_SPEEDS[w.speed].fee);

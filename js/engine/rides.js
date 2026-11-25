@@ -60,6 +60,24 @@ export function bookBatch(s, plan, { payer, trip = 'city', at = null, channel = 
   return { batchId, ids };
 }
 
+// Drivers can claim a scheduled ride in advance; at dispatch time it goes straight to them.
+export function reserveRide(s, rideId, driverId) {
+  const st = s.get(); const r = st.rides.find(x => x.id === rideId); const d = driverOf(s, driverId);
+  if (!r || r.status !== 'scheduled') return { ok: false, why: 'This ride is no longer open.' };
+  if (r.reservedBy && r.reservedBy !== driverId) return { ok: false, why: 'Another driver took it.' };
+  if (!classEligible(carOf(s, driverId), st.now).includes(r.cls)) return { ok: false, why: `Needs a ${r.cls}.` };
+  const clash = st.rides.find(x => x.reservedBy === driverId && x.id !== rideId && Math.abs(x.at - r.at) < (x.min + r.min + 30) * MIN);
+  if (clash) return { ok: false, why: `Clashes with your ${fmtTime(clash.at)} booking.` };
+  r.reservedBy = driverId; r.log.push({ at: st.now, text: `Reserved by ${d.name}` });
+  for (const id of r.riderIds) notify(s, 'rider', id, 'Driver confirmed', `${d.name} will pick you up at ${fmtTime(r.at)}.`, 'good', 'ride');
+  notify(s, 'driver', driverId, 'Booking confirmed', `${places[r.pickup].name.split(' · ')[0]} at ${fmtTime(r.at)} is yours. We remind you 30 minutes before.`, 'good', 'ride');
+  s.dispatch('ride', r); return { ok: true };
+}
+export function releaseRide(s, rideId, driverId) {
+  const r = s.get().rides.find(x => x.id === rideId); if (!r || r.reservedBy !== driverId) return;
+  r.reservedBy = null; r.log.push({ at: s.get().now, text: 'Driver released the booking' }); s.dispatch('ride', r);
+}
+
 export function cancelRide(s, rideId, by = 'rider') {
   const st = s.get(); const r = st.rides.find(x => x.id === rideId);
   if (!r || ['completed', 'cancelled'].includes(r.status)) return;
@@ -148,8 +166,15 @@ function dispatch(s) {
   const st = s.get();
   const offered = new Set(st.rides.filter(r => r.offer).map(r => r.offer.driverId));
   for (const r of st.rides) { st._ctxRide = r.id;
+    if (r.status === 'scheduled' && r.reservedBy && !r.reminded && r.at - st.now <= 30 * MIN) { r.reminded = true; notify(s, 'driver', r.reservedBy, 'Booking in 30 minutes', `${places[r.pickup].name.split(' · ')[0]} at ${fmtTime(r.at)}. Head that way.`, 'info', 'ride'); }
     if (r.status === 'scheduled' && r.at - st.now <= DISPATCH_AHEAD) { r.status = 'finding'; r.log.push({ at: st.now, text: 'Dispatching' }); }
     if (r.status !== 'finding') continue;
+    if (r.reservedBy && !r.offer) {
+      const d = driverOf(s, r.reservedBy);
+      if (d.online && !d.busy && !offered.has(d.id)) { r.offer = { driverId: d.id, since: st.now, until: st.now + OFFER_MS }; acceptOffer(s, r.id); continue; }
+      if (r.at && st.now - (r.at - DISPATCH_AHEAD) > 5 * MIN) { notify(s, 'driver', d.id, 'Booking reassigned', `You were offline, so the ${fmtTime(r.at)} ride went to another driver.`, 'warn'); r.reservedBy = null; }
+      else continue;
+    }
     if (r.offer) {
       const d = driverOf(s, r.offer.driverId);
       if (d.auto && st.now - r.offer.since >= AUTO_ACCEPT_MS) { acceptOffer(s, r.id); continue; }

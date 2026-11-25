@@ -1,3 +1,4 @@
+import { explainer } from '../ui/explain.js';
 import { h, icon, dotNumber, initials } from '../ui/kit.js';
 import { inr, fmtClock } from '../engine/store.js';
 import { places } from '../engine/geo.js';
@@ -50,7 +51,7 @@ export function createWhatsApp(s) {
       h('div', { class: 'chat-head' }, h('button', { class: 'iconbtn ghost', 'aria-label': 'Chat options', onclick: () => menuSheet(app, 'Chat', [{ label: 'Start a new booking', icon: 'plus', run: () => send('hi') }, { label: 'Clear this chat', icon: 'close', danger: true, run: () => { const c = chat(); if (c) { c.messages = []; c.stage = 'start'; } ui.dirty(); } }]) }, icon('back')), h('div', { style: { width: '36px', height: '36px' } }, h('svg', { viewBox: '0 0 32 32', width: 36, height: 36 }, h('rect', { width: 32, height: 32, rx: 16, fill: '#6246EA' }), h('path', { d: 'M10 9h12v3.6h-8v2.2h6v3.2h-6v2.4h8V24H10z', fill: '#fff' }))),
         h('div', { class: 'grow' }, h('b', null, 'Easydrivess'), h('small', null, 'Business account · replies instantly')), h('button', { class: 'iconbtn ghost', 'aria-label': 'Call Easydrivess', onclick: () => callSheet(app, { name: 'Easydrivess', role: 'Booking line' }) }, icon('phone'))),
       h('div', { class: 'chat' },
-        !msgs.length && h('div', { class: 'center small', style: { margin: 'auto 20px', color: 'var(--fg-3)' } }, 'Book a cab by chat. No app needed. Say hi to start.'),
+        !msgs.length && h('div', { style: { margin: 'auto 4px' } }, explainer(app, 'whatsapp', { force: true })),
         msgs.map((m, i) => bubble(m, i, i === lastBotIdx && lastBotIdx > lastUser))),
       h('div', { class: 'composer' },
         !msgs.length || chat()?.stage === 'confirmed' ? h('button', { class: 'btn primary', style: { flex: 1, height: '42px' }, onclick: () => send('hi') }, msgs.length ? 'Book another ride' : 'Say hi') :

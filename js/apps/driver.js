@@ -1,3 +1,4 @@
+import { explainer } from '../ui/explain.js';
 import { h, icon, map, dotNumber, scrollNumber, sentence, topbar, adCard, btn, swipe, tickGauge, ring, pill, tile, initials } from '../ui/kit.js';
 import { inr, fmtTime, fmtClock, unread } from '../engine/store.js';
 import { led } from '../ui/fx.js';
@@ -62,7 +63,7 @@ export function createDriver(s) {
             h('div', { class: 'num-label' }, 'Shine Check due'),
             h('div', { class: 'num-row' }, dotNumber('40', { size: 9, off: false }), h('div', { style: { fontSize: '13px', color: 'var(--fg-2)', alignSelf: 'flex-end', marginLeft: '6px' } }, 'sec')),
             sentence(['Four quick photos keep your score high and unlock ', { chip: 'premium rides' }, '.']),
-            h('div', { class: 'mt12' }, btn('Start Shine Check', { arrow: true, onClick: startShine })))
+            h('div', { class: 'mt12' }, btn('Start Shine Check', { arrow: true, onClick: startShine })), explainer(app, 'shine', { force: true }))
             : h('div', { class: 'hero condition' },
               h('div', { class: 'flex', style: { justifyContent: 'center' } }, tickGauge(cs.score, { size: 150, label: 'Condition', color: 'var(--aqua)' })),
               sentence([cs.sentence.replace(/\.$/, ''), '. Earns ', { chip: cs.score >= 90 ? '+5% fares' : 'standard fares' }, '.'])),
@@ -99,6 +100,7 @@ export function createDriver(s) {
           h('div', { class: 'card mt12' }, h('div', { class: 'card-head' }, h('h3', null, 'Papers')),
             Object.entries(c.docs).map(([k, v]) => h('div', { class: 'row' }, h('span', { class: 'ic' }, icon('doc')), h('div', { class: 'grow t' }, { rc: 'Registration (RC)', insurance: 'Insurance', permit: 'Commercial permit', puc: 'Pollution (PUC)', fitness: 'Fitness certificate' }[k]), pill(v === 'valid' ? 'Valid' : v, v === 'valid' ? 'good' : 'warn'))),
             h('div', { class: 'row' }, h('span', { class: 'ic' }, icon('settings')), h('div', { class: 'grow t' }, 'Service'), pill(c.serviceDue, c.serviceDue === 'Overdue' ? 'alert' : ''))),
+          explainer(app, 'shine'),
           h('div', { class: 'mt12' }, btn('Start Shine Check', { kind: 'dark', ic: 'camera', onClick: startShine }))),
         tabbar('car')];
     },
@@ -202,7 +204,7 @@ export function createDriver(s) {
   }
 
   function tabbar(cur) {
-    return h('div', { class: 'tabbar' }, h('nav', null, [['home', 'home'], ['earnings', 'wallet'], ['car', 'car'], ['profile', 'user']].map(([k, ic]) => h('button', { 'aria-label': k, 'aria-pressed': String(cur === k), onclick: () => ui.reset(k) }, icon(ic)))));
+    return h('div', { class: 'tabbar' }, h('nav', null, [['home', 'home'], ['scheduled', 'calendar'], ['earnings', 'wallet'], ['car', 'car'], ['profile', 'user']].map(([k, ic]) => h('button', { 'aria-label': k, 'aria-pressed': String(cur === k), onclick: () => ui.reset(k) }, icon(ic)))));
   }
 
   app.render = () => (screens[ui.screen] || screens.home)(ui.params);

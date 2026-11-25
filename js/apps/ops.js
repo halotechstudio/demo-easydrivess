@@ -7,7 +7,7 @@ import { conditionScore, classEligible, quote, CLASSES } from '../engine/pricing
 import { approvePayouts, rejectPayout, PAYOUT_SPEEDS } from '../engine/wallet.js';
 import { ackAlert, closeAlert } from '../engine/safety.js';
 import { adRevenue, AD_SLOTS } from '../engine/ads.js';
-import { adMediaURL } from '../ui/admedia.js';
+import { adMediaURL, adBackground } from '../ui/admedia.js';
 import { router, ACTIVE, placeName } from './common.js';
 
 const CHANNEL = { app: 'App', corporate: 'Corporate', whatsapp: 'WhatsApp', hotel: 'Hotel' };
@@ -192,7 +192,8 @@ export function createOps(s) {
           h('div', { class: 'wgrid c2' },
             h('div', { class: 'wgrid', style: { gap: '10px' } },
               ['advertiser', 'title', 'sub', 'cta'].map(k => h('div', { class: 'field' }, h('label', null, { advertiser: 'Advertiser', title: 'Headline', sub: 'Line two', cta: 'Button' }[k]), h('input', { class: 'input', value: n[k], oninput: e => { n[k] = e.target.value; }, onchange: () => ui.dirty() }))),
-              h('div', { class: 'field' }, h('label', null, 'Banner image (wide, about 3:1)'), h('input', { class: 'input', type: 'file', accept: 'image/*', style: { paddingTop: '8px' }, onchange: e => { const f = e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { n.media = rd.result; ui.dirty(); }; rd.readAsDataURL(f); } })),
+              h('div', { class: 'field' }, h('label', null, 'Photo link (Unsplash or your CDN)'), h('input', { class: 'input', placeholder: 'https://images.unsplash.com/photo-…', value: n.photo || '', oninput: e => { n.photo = e.target.value.trim() || null; }, onchange: () => ui.dirty() })),
+              h('div', { class: 'field' }, h('label', null, 'Or upload a banner (wide, about 3:1)'), h('input', { class: 'input', type: 'file', accept: 'image/*', style: { paddingTop: '8px' }, onchange: e => { const f = e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { n.media = rd.result; ui.dirty(); }; rd.readAsDataURL(f); } })),
               h('div', { class: 'field' }, h('label', null, 'Colour'), h('div', { class: 'tabs-sm' }, ['majorelle', 'ember', 'aqua', 'lavender'].map(t => h('button', { 'aria-pressed': String(n.tone === t), onclick: () => { n.tone = t; ui.dirty(); } }, t[0].toUpperCase() + t.slice(1))))),
               h('div', { class: 'field' }, h('label', null, 'Where it shows'), h('div', { class: 'tabs-sm', style: { flexWrap: 'wrap' } }, AD_SLOTS.map(sl => h('button', { 'aria-pressed': String(n.slots.includes(sl.id)), onclick: () => { n.slots = n.slots.includes(sl.id) ? n.slots.filter(x => x !== sl.id) : [...n.slots, sl.id]; ui.dirty(); } }, sl.label))))),
             h('div', null, h('div', { class: 'label', style: { marginBottom: '8px' } }, 'Preview'), adCard({ ...n, advertiser: n.advertiser || 'Advertiser', title: n.title || 'Your headline here', sub: n.sub || 'Second line' }),
@@ -200,7 +201,7 @@ export function createOps(s) {
         h('div', { class: 'panel mt16' }, h('table', { class: 't' },
           h('thead', null, h('tr', null, ['Ad', 'Placements', 'Impressions', 'Clicks', 'CTR', 'Revenue', 'On'].map(x => h('th', { class: ['Impressions', 'Clicks', 'CTR', 'Revenue'].includes(x) ? 'num' : '' }, x)))),
           h('tbody', null, st().ads.map(a => h('tr', null,
-            h('td', null, h('div', { class: 'flex' }, h('span', { style: { width: '54px', height: '34px', borderRadius: '10px', display: 'block', backgroundImage: `url("${adMediaURL(a)}")`, backgroundSize: 'cover', backgroundPosition: 'center', flex: 'none' } }), h('div', null, h('div', { style: { fontWeight: 500 } }, a.advertiser), h('div', { class: 'label' }, a.title)))),
+            h('td', null, h('div', { class: 'flex' }, h('span', { style: { width: '54px', height: '34px', borderRadius: '10px', display: 'block', backgroundImage: adBackground(a), backgroundSize: 'cover', backgroundPosition: 'center', flex: 'none' } }), h('div', null, h('div', { style: { fontWeight: 500 } }, a.advertiser), h('div', { class: 'label' }, a.title)))),
             h('td', null, h('div', { class: 'flex wrap', style: { gap: '4px' } }, a.slots.map(x => pill(AD_SLOTS.find(y => y.id === x)?.label || x)))),
             h('td', { class: 'num' }, a.impressions.toLocaleString('en-IN')), h('td', { class: 'num' }, a.clicks), h('td', { class: 'num' }, `${a.impressions ? (a.clicks / a.impressions * 100).toFixed(1) : '0.0'}%`), h('td', { class: 'num' }, inr(adRevenue(a))),
             h('td', null, h('button', { class: 'toggle', 'aria-pressed': String(a.on), onclick: () => { a.on = !a.on; s.dispatch('ad', a); } })))))))];
