@@ -159,6 +159,33 @@ test('ads never show on safety or payment screens and cap at 3 a day', () => {
   for (const n of Object.values(seen)) assert.ok(n <= 3);
 });
 
+test('rider never pays more than the quoted fare', () => {
+  const s = fresh();
+  const id = bookRide(s, { riderId: 'r1', pickup: 'jubilee', drop: 'hitec', cls: 'Sedan', trip: 'city', channel: 'app', fare: 150, quoted: true });
+  for (let i = 0; i < 10; i++) tick(s, 2000);
+  const r = s.get().rides.find(x => x.id === id);
+  assert.ok(r.driverId, 'assigned');
+  assert.ok(r.fare <= 150);
+});
+
+test('a Sedan ride goes to a Sedan before a Luxury car', () => {
+  const s = fresh();
+  const id = bookRide(s, { riderId: 'r1', pickup: 'jubilee', drop: 'rgia', cls: 'Sedan', trip: 'airport', channel: 'app' });
+  tick(s, 1000);
+  const r = s.get().rides.find(x => x.id === id);
+  const car = s.get().cars.find(c => c.id === s.get().drivers.find(d => d.id === r.offer.driverId).carId);
+  assert.equal(car.cls, 'Sedan');
+});
+
+test('more riders than one car holds are split into valid cars', () => {
+  const s = fresh();
+  const homes = ['miyapur', 'kondapur', 'kukatpally', 'madhapur', 'miyapur', 'kondapur', 'kukatpally', 'madhapur', 'kondapur'];
+  const plan = planBatch(homes.map((h, i) => ({ id: 'x' + i, pickup: h, drop: 'orbit' })), { pricing: s.get().pricing, now: s.get().now });
+  assert.ok(plan.cars.length >= 2);
+  assert.equal(plan.cars.reduce((n, c) => n + c.riders.length, 0), 9);
+  for (const c of plan.cars) assert.ok(c.riders.length <= 6);
+});
+
 test('WhatsApp books a ride in 4 taps after hi', () => {
   const s = fresh();
   const chat = 'wa1';

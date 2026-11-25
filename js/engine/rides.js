@@ -31,13 +31,14 @@ export function bookRide(s, req) {
   const ride = {
     id: uid(s, 'R'), riderId: req.riderId, riderIds: req.riderIds || [req.riderId], pickup: req.pickup, drop: req.drop,
     cls: req.cls, trip: req.trip || 'city', channel: req.channel || 'app', payer: req.payer || 'self', batchId: req.batchId || null,
-    stops: req.stops || [], points: path.points, km: path.km, min: path.min, fare: est, fixedFare: req.fare != null,
+    stops: req.stops || [], points: path.points, km: path.km, min: path.min, fare: est, fixedFare: req.fare != null, quoted: !!req.quoted,
     at: req.at || null, flight: req.flight || null, guest: req.guest || null, chatId: req.chatId || null, templateId: req.templateId || null,
     status: req.at && req.at - st.now > DISPATCH_AHEAD ? 'scheduled' : 'finding',
     createdAt: st.now, otp: otp(), offer: null, declined: [], driverId: null, carId: null,
     progress: 0, approach: null, waitStarted: null, stopIdx: 0, log: [{ at: st.now, text: 'Booked' }],
   };
   st.rides.unshift(ride);
+  if (!ride.batchId) notify(s, 'ops', 'ops', `${{ app: 'App', whatsapp: 'WhatsApp', hotel: 'Hotel', corporate: 'Corporate' }[ride.channel]} booking`, `${ride.cls} · ${places[ride.pickup]?.name.split(' · ')[0]} to ${places[ride.drop]?.name.split(' · ')[0]} · ${inr(ride.fare)}${ride.at ? ' · ' + fmtTime(ride.at) : ''}`);
   s.dispatch('ride', ride);
   return ride.id;
 }
@@ -73,7 +74,11 @@ export function acceptOffer(s, rideId) {
   if (!r?.offer) return;
   const d = driverOf(s, r.offer.driverId); const car = carOf(s, d.id);
   r.driverId = d.id; r.carId = car.id; r.offer = null; d.busy = true;
-  if (!r.fixedFare) r.fare = quote({ cls: r.cls, km: r.km, min: r.min, car, trip: r.trip, demand: st.pricing.demand, now: st.now, pricing: st.pricing }).fare;
+  // Ruling: the rider never pays more than the fare they were shown; a lower-scoring car brings the price down.
+  if (!r.fixedFare || r.quoted) {
+    const actual = quote({ cls: r.cls, km: r.km, min: r.min, car, trip: r.trip, demand: st.pricing.demand, now: st.now, pricing: st.pricing }).fare;
+    r.fare = r.quoted ? Math.min(r.fare, actual) : actual;
+  }
   const firstStop = r.stops.length ? r.stops[0].placeId : r.pickup;
   const target = places[firstStop];
   const km = Math.hypot(target.x - d.pos.x, target.y - d.pos.y) * UNIT_KM * ROAD;
@@ -152,10 +157,12 @@ function dispatch(s) {
       .filter(({ car }) => car && car.status === 'live' && classEligible(car, st.now).includes(r.cls));
     if (!cands.length) continue;
     // Score: 50% ETA, 20% condition, 20% acceptance, 10% rest. Lower is better.
+    // Ruling: a car from a higher class only serves a lower class when no same-class car is close (keeps premium cars free).
     const scored = cands.map(({ d, car }) => {
       const eta = Math.hypot(target.x - d.pos.x, target.y - d.pos.y) * UNIT_KM * ROAD * 2.3;
       const cond = conditionScore(car, st.now).score;
-      return { d, score: 0.5 * eta + 0.2 * (100 - cond) / 4 + 0.2 * (100 - d.acceptance) / 4 + 0.1 * (d.restHours < 1 ? 20 : 0) };
+      const upgrade = car.cls !== r.cls ? 12 : 0;
+      return { d, score: 0.5 * eta + 0.2 * (100 - cond) / 4 + 0.2 * (100 - d.acceptance) / 4 + 0.1 * (d.restHours < 1 ? 20 : 0) + upgrade };
     }).sort((a, b) => a.score - b.score);
     const best = scored[0].d;
     r.offer = { driverId: best.id, since: st.now, until: st.now + OFFER_MS };
