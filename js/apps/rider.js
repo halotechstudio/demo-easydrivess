@@ -99,8 +99,18 @@ export function createRider(s) {
             h('span', { class: 'ic' }, icon(next.templateId ? 'repeat' : 'clock')),
             h('span', { class: 'grow' }, h('div', { style: { fontWeight: 600, fontSize: '14.5px' } }, `${next.templateId ? 'Repeating' : 'Scheduled'} · ${fmtTime(next.at)}`), h('div', { class: 'label' }, `${next.cls} to ${placeName(next.drop)} · ${inr(next.fare)} · driver assigned 20 min before`)),
             h('span', { class: 'pill violet' }, 'Set')),
-          h('button', { class: 'searchbar', onclick: () => ui.go('where', { pickup: here() }) }, icon('search'), 'Where to?'),
-          h('div', { class: 'saved' }, r.saved.filter(x => x.place !== here()).map(x => h('button', { onclick: () => ui.go('book', { pickup: here(), drop: x.place, trip: x.place === 'rgia' ? 'airport' : 'city' }) }, icon(x.label === 'Home' ? 'home' : x.label === 'Airport' ? 'plane' : 'work'), x.label))),
+          // Where to: one highlighted panel. Search on top; saved places below as live shortcuts (minutes and fare).
+          h('div', { class: 'where-panel' },
+            h('button', { class: 'searchbar hi', onclick: () => ui.go('where', { pickup: here() }) },
+              h('span', { class: 'sb-ic' }, icon('search')), h('span', { class: 'grow' }, h('b', null, 'Where to?'), h('small', null, `From ${placeName(here())} · current location`)),
+              h('span', { class: 'sb-now', onclick: e => { e.stopPropagation(); ui.go('schedule', { pickup: here() }); } }, icon('clock', 14), 'Now')),
+            h('div', { class: 'shortcuts' }, [...r.saved.filter(x => x.place !== here()).slice(0, 2).map(x => {
+              const trip = x.place === 'rgia' ? 'airport' : 'city'; const e = estimate(s, { pickup: here(), drop: x.place, cls: app.lastCls, trip });
+              return h('button', { class: 'sc', onclick: () => ui.go('book', { pickup: here(), drop: x.place, trip }) },
+                h('span', { class: 'sc-ic' }, icon(x.label === 'Home' ? 'home' : x.label === 'Airport' ? 'plane' : 'work', 16)),
+                h('b', null, x.label), h('small', null, `${e.min} min · ${inr(e.fare)}`));
+            }), h('button', { class: 'sc add', onclick: () => ui.go('p-places') }, h('span', { class: 'sc-ic' }, icon('plus', 16)), h('b', null, 'Add'), h('small', null, 'Save a place'))])),
+
           h('div', { class: 'choices mt16' },
             [['city', 'City', 'city'], ['airport', 'Airport', 'plane'], ['intercity', 'Intercity', 'route'], ['schedule', 'Schedule', 'calendar']].map(([k, l, ic]) =>
               h('button', { class: 'choice', onclick: () => k === 'city' ? ui.go('where', { pickup: here() }) : ui.go(k, { pickup: here() }) }, animIcon(k), l))),
