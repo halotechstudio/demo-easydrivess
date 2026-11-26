@@ -130,3 +130,32 @@ html { transition: background-color .4s; }
 /* Presenter bar wraps instead of hiding controls off-screen */
 .bar { flex-wrap: wrap; overflow: visible; row-gap: 10px; }
 .bar .tabs { overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+
+/* ---- Day mode v2: deeper lavender ground with stronger colour so frosted glass has something to blur ---- */
+:root[data-theme="light"] { --ink: #C9C4E6; --ink-2: #BFB9E0; }
+[data-theme="light"] body { background: #BCB6DD; }
+[data-theme="light"] body::before { background: radial-gradient(38% 32% at 22% 28%, rgba(98, 70, 234, .38), transparent 70%), radial-gradient(30% 28% at 78% 64%, rgba(40, 190, 150, .30), transparent 70%), radial-gradient(34% 30% at 60% 18%, rgba(255, 150, 90, .22), transparent 70%); }
+[data-theme="light"] .screen { background: linear-gradient(170deg, #CFC9EC, #B9B2DD 60%, #C4BEE3); }
+[data-theme="light"] .screen::before { background: radial-gradient(42% 30% at 18% 22%, rgba(98, 70, 234, .50), transparent 72%), radial-gradient(36% 26% at 86% 58%, rgba(40, 190, 150, .38), transparent 72%), radial-gradient(40% 30% at 40% 92%, rgba(255, 140, 80, .28), transparent 72%); }
+[data-theme="light"] .status { background: linear-gradient(180deg, rgba(201, 196, 230, .9), rgba(201, 196, 230, 0)); }
+[data-theme="light"] .tabbar { background: linear-gradient(180deg, transparent, rgba(190, 184, 224, .75) 45%, rgba(190, 184, 224, .92)); }
+[data-theme="light"] .browser { background: linear-gradient(160deg, #CFC9EC, #BDB6DF); }
+[data-theme="light"] .browser .main { background: radial-gradient(60% 50% at 12% 0%, rgba(98, 70, 234, .28), transparent 60%), radial-gradient(50% 40% at 100% 100%, rgba(40, 190, 150, .22), transparent 60%), radial-gradient(40% 40% at 70% 20%, rgba(255, 150, 90, .14), transparent 60%); }
+[data-theme="light"] .side { background: rgba(255, 255, 255, .22); backdrop-filter: blur(20px) saturate(160%); }
+[data-theme="light"] .browser .chrome { background: rgba(255, 255, 255, .45); backdrop-filter: blur(16px); }
+[data-theme="light"] .bar { background: rgba(214, 210, 238, .6); backdrop-filter: blur(18px) saturate(160%); }
+
+/* Frosted glass: translucent white, heavy blur, bright specular edge, soft inner highlight */
+[data-theme="light"] :is(.glass, .card, .tile, .classes .cls, .saved button, .choice, .tabbar nav, .toast, .sheet, .panel, .tabs-sm button, .iconbtn, .hero, .btn.dark, .keypad button, .otp .d, .qr button, .waclass button, .msg.bot, .shortcuts .sc, .tabs, .theme-toggle, .menu-btn, .dropdown, .bell-pop) {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .52), rgba(255, 255, 255, .28)) padding-box,
+    linear-gradient(150deg, rgba(255, 255, 255, .95), rgba(255, 255, 255, .25) 30%, rgba(255, 255, 255, .12) 65%, rgba(255, 255, 255, .8)) border-box;
+  border: 1px solid transparent;
+  -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), inset 0 -1px 0 rgba(255, 255, 255, .25), 0 14px 34px -18px rgba(40, 30, 110, .55);
+}
+[data-theme="light"] .hero { background: linear-gradient(180deg, rgba(255, 255, 255, .5), rgba(255, 255, 255, .26)) padding-box, linear-gradient(150deg, #fff, rgba(255, 255, 255, .3) 30%, rgba(255, 255, 255, .15) 65%, rgba(255, 255, 255, .85)) border-box; }
+[data-theme="light"] .tabs button[aria-pressed="true"], [data-theme="light"] .theme-toggle button[aria-pressed="true"] { background: rgba(255, 255, 255, .85); color: var(--fg); }
+[data-theme="light"] .side button[aria-pressed="true"] { background: rgba(255, 255, 255, .7); }
+[data-theme="light"] .map { background: rgba(247, 246, 253, .75); }
+[data-theme="light"] .label, [data-theme="light"] .small, [data-theme="light"] .muted { color: #45415C; }
+:root[data-theme="light"] { --fg-2: #3F3B56; --fg-3: #5F5B78; }
