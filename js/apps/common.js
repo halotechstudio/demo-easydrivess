@@ -17,6 +17,12 @@ export const placeName = id => places[id]?.name.split(' · ')[0] || id;
 export const isNight = ms => { const d = new Date(ms + 5.5 * 3600e3).getUTCHours(); return d >= 22 || d < 6; };
 
 // Nearest available eligible car ETA for a class from a place.
+// Free cars whose pickup range covers this place.
+export function nearCount(s, placeId) {
+  const st = s.get(); const p = places[placeId];
+  return st.drivers.filter(d => d.online && !d.busy && Math.hypot(p.x - d.pos.x, p.y - d.pos.y) * UNIT_KM * ROAD <= (d.prefs?.maxPickupKm ?? 6)).length;
+}
+
 export function etaFor(s, cls, placeId) {
   const st = s.get(); const p = places[placeId];
   let best = null;

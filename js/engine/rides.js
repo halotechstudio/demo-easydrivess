@@ -105,9 +105,9 @@ export function acceptOffer(s, rideId) {
   const target = places[firstStop];
   const km = Math.hypot(target.x - d.pos.x, target.y - d.pos.y) * UNIT_KM * ROAD;
   const mid = { x: (d.pos.x + target.x) / 2 + 12, y: (d.pos.y + target.y) / 2 - 8 };
-  r.approach = { points: [{ ...d.pos }, mid, { x: target.x, y: target.y }], km: Math.round(km * 10) / 10, min: Math.max(3, minutesFor(km) - 2), progress: 0 };
+  r.approach = { points: [{ ...d.pos }, mid, { x: target.x, y: target.y }], km: Math.round(km * 10) / 10, min: km < 0.3 ? 1 : Math.max(2, minutesFor(km) - 2), progress: 0 };
   r.status = 'arriving'; r.log.push({ at: st.now, text: `${d.name} accepted` });
-  for (const id of r.riderIds) notify(s, 'rider', id, 'Driver on the way', `${d.name} · ${car.model} · ${car.plate}. Arriving in ${r.approach.min} min.`);
+  for (const id of r.riderIds) notify(s, 'rider', id, 'Driver on the way', `${d.name} · ${car.model} · ${car.plate}. ${r.approach.min <= 1 ? 'Almost at your pickup.' : `Arriving in ${r.approach.min} min.`}`);
   if (r.batchId && st.companies.some(c => c.id === r.payer)) notify(s, 'manager', r.payer, 'Driver assigned', `${d.name} · ${car.plate} for ${r.riderIds.length} rider${r.riderIds.length > 1 ? 's' : ''}.`, 'info', 'ride');
   waOnUpdate(s, r, 'assigned');
   s.dispatch('ride', r);
@@ -142,7 +142,7 @@ export function rateRide(s, rideId, { stars, clean }) {
 
 export function setFlightDelay(s, rideId, minutes) {
   const r = s.get().rides.find(x => x.id === rideId); if (!r?.flight) return;
-  r.flight.delay = minutes; r.at = r.flight.land + minutes * MIN + 15 * MIN;
+  r.flight.delay = minutes; r.at = r.flight.land + minutes * MIN + (r.flight.buffer ?? 15) * MIN;
   r.log.push({ at: s.get().now, text: `Flight delayed ${minutes} min, pickup moved to ${fmtTime(r.at)}` });
   notify(s, 'hotel', r.payer, 'Flight delayed', `${r.flight.no} is ${minutes} min late. Pickup moved to ${fmtTime(r.at)} automatically.`, 'warn');
   s.dispatch('ride', r);
@@ -190,9 +190,24 @@ function dispatch(s) {
     // Everyone eligible said no: start the round again rather than leave the rider waiting forever.
     if (!cands.length) { if (r.declined.length) r.declined = []; r.noCars = true; continue; }
     r.noCars = false;
+    // Respect each driver's pickup range. Wait up to 3 min for a near car, then widen and tell the rider the real wait.
+    const kmTo = d => Math.hypot(target.x - d.pos.x, target.y - d.pos.y) * UNIT_KM * ROAD;
+    const reach = r.trip === 'city' ? 1 : 2;
+    const near = cands.filter(c => kmTo(c.d) <= (c.d.prefs?.maxPickupKm ?? 6) * reach);
+    if (r.findingSince == null) r.findingSince = st.now;
+    let pool = near;
+    if (!near.length) {
+      if (st.now - r.findingSince < 3 * MIN) { r.farWait = true; continue; }
+      pool = cands; r.farWait = false;
+      if (!r.farNotified) {
+        r.farNotified = true;
+        const eta = Math.max(1, Math.round(Math.min(...cands.map(c => kmTo(c.d))) * 2.3));
+        for (const id of r.riderIds) notify(s, 'rider', id, 'Nearest car is farther today', `No car close by right now. The nearest is about ${eta} min away. Cancel free if that is too long.`, 'warn', 'ride');
+      }
+    }
     // Score: 50% ETA, 20% condition, 20% acceptance, 10% rest. Lower is better.
     // Ruling: a car from a higher class only serves a lower class when no same-class car is close (keeps premium cars free).
-    const scored = cands.map(({ d, car }) => {
+    const scored = pool.map(({ d, car }) => {
       const eta = Math.hypot(target.x - d.pos.x, target.y - d.pos.y) * UNIT_KM * ROAD * 2.3;
       const cond = conditionScore(car, st.now).score;
       const upgrade = car.cls !== r.cls ? 12 : 0;
@@ -236,9 +251,15 @@ function advance(s, dt) {
           s.dispatch('ride', r);
         }
       }
-      if (r.progress >= 1) complete(s, r);
+      // Autopilot ends the trip on arrival. In manual mode the driver taps End trip.
+      if (r.progress >= 1) { if (d.auto) complete(s, r); else if (!r.atDrop) { r.atDrop = true; s.dispatch('ride', r); } }
     }
   }
+}
+
+export function endTrip(s, rideId) {
+  const r = s.get().rides.find(x => x.id === rideId);
+  if (r && r.status === 'onboard' && r.progress >= 1) complete(s, r);
 }
 
 function complete(s, r) {

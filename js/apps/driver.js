@@ -7,7 +7,7 @@ import { driverAccountScreens } from './driver-account.js';
 import { raiseAlert } from '../engine/safety.js';
 import { places } from '../engine/geo.js';
 import { conditionScore, classEligible } from '../engine/pricing.js';
-import { acceptOffer, declineOffer, verifyOtp, carOf, OFFER_MS } from '../engine/rides.js';
+import { acceptOffer, declineOffer, verifyOtp, carOf, OFFER_MS , endTrip } from '../engine/rides.js';
 import { requestPayout } from '../engine/wallet.js';
 import { pickAd, recordImpression, recordClick } from '../engine/ads.js';
 import { router, ACTIVE, placeName, stopList, mapForRide } from './common.js';
@@ -176,7 +176,7 @@ export function createDriver(s) {
           h('div', { class: 'otp input', style: { justifyContent: 'center' } }, [0, 1, 2, 3].map(i => h('div', { class: `d ${i === app.otpIn.length ? 'cur' : ''}` }, app.otpIn[i] ? dotNumber(app.otpIn[i], { size: 4.5, off: false }) : null))),
           app.otpWrong && h('div', { class: 'small center mt8', style: { color: '#FF8A78' } }, 'That code does not match. Ask the rider to check their app.'),
           h('div', { class: 'keypad' }, ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'fill', '0', 'del'].map(k => k === 'fill'
-            ? h('button', { style: { fontSize: '12px', color: 'var(--fg-3)' }, title: 'Demo: fill the right code', onclick: () => { app.otpIn = r.otp; ui.dirty(); } }, 'Demo')
+            ? h('button', { style: { fontSize: '12px', color: 'var(--fg-3)' }, title: 'Simulation only: fill the right code', 'aria-label': 'Simulation only: fill the code', onclick: () => { app.otpIn = r.otp; ui.dirty(); } }, 'Sim fill')
             : h('button', { onclick: () => enter(k) }, k === 'del' ? icon('back') : k)))),
         h('div', { class: 'dock' }, btn('Start trip', { arrow: true, disabled: !ok, onClick: () => { const good = verifyOtp(s, r.id, app.otpIn); app.otpWrong = !good; app.otpIn = ''; ui.dirty(); } }))];
     }
@@ -190,7 +190,8 @@ export function createDriver(s) {
           h('div', { class: 'center' }, dotNumber(String(left), { size: 5, off: false }), h('div', { class: 'label' }, 'min'))),
         h('div', { class: 'card mt12' }, h('div', { class: 'card-head' }, h('h3', null, `Trip ${r.id}`), h('span', { class: 'label' }, `${r.km} km · ${inr(Math.round(r.fare * (1 - st().pricing.commission)))} for you`)), stopList(s, r)),
         h('div', { class: 'flex mt12', style: { gap: '8px' } }, h('button', { class: 'btn dark', style: { flex: 1 }, onclick: () => callSheet(app, { name: nm, role: 'Your rider' }) }, icon('phone', 18), 'Call rider'), h('button', { class: 'btn ember', style: { flex: 1 }, onclick: () => emergency(r) }, icon('shield', 18), 'Emergency')),
-        h('button', { class: 'btn block mt8', style: { color: 'var(--fg-2)', height: '42px' }, onclick: () => chatSheet(app, s, r, 'driver') }, icon('chat', 17), 'Message rider'))];
+        h('button', { class: 'btn block mt8', style: { color: 'var(--fg-2)', height: '42px' }, onclick: () => chatSheet(app, s, r, 'driver') }, icon('chat', 17), 'Message rider')),
+      !d.auto && r.status === 'onboard' && h('div', { class: 'dock' }, btn(r.atDrop ? 'End trip' : 'End trip at drop', { arrow: true, disabled: !r.atDrop, onClick: () => { endTrip(s, r.id); ui.dirty(); } }))];
   }
 
   function complete(r) {
@@ -212,8 +213,8 @@ export function createDriver(s) {
   app.controls = () => {
     const d = me();
     return h('div', { class: 'flex', style: { gap: '14px', fontSize: '12.5px', color: 'var(--fg-2)' } },
-      h('label', { class: 'flex', style: { gap: '6px' } }, h('button', { class: 'toggle', 'aria-pressed': String(!!d?.auto), style: { transform: 'scale(.8)' }, onclick: e => { d.auto = !d.auto; e.currentTarget.setAttribute('aria-pressed', String(d.auto)); s.dispatch('driver', d); } }), 'Autopilot'),
-      h('label', { class: 'flex', style: { gap: '6px' } }, h('button', { class: 'toggle', 'aria-pressed': String(app.follow), style: { transform: 'scale(.8)' }, onclick: e => { app.follow = !app.follow; e.currentTarget.setAttribute('aria-pressed', String(app.follow)); } }), 'Follow rider'));
+      h('label', { class: 'flex', style: { gap: '6px' } }, h('button', { class: 'toggle', 'aria-label': 'Autopilot', 'aria-pressed': String(!!d?.auto), style: { transform: 'scale(.8)' }, onclick: e => { const cur = me(); cur.auto = !cur.auto; e.currentTarget.setAttribute('aria-pressed', String(cur.auto)); s.dispatch('driver', cur); ui.dirty(); } }), 'Autopilot'),
+      h('label', { class: 'flex', style: { gap: '6px' } }, h('button', { class: 'toggle', 'aria-label': 'Follow rider', 'aria-pressed': String(app.follow), style: { transform: 'scale(.8)' }, onclick: e => { app.follow = !app.follow; e.currentTarget.setAttribute('aria-pressed', String(app.follow)); } }), 'Follow rider'));
   };
   app.notifyKey = n => n.app === 'driver' && n.to === app.who;
   function bell() {

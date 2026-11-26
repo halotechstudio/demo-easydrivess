@@ -57,7 +57,7 @@ export function createManager(s) {
           h('div', { class: 'num-label' }, 'Company wallet'),
           h('div', { class: 'num-row' }, dotNumber('₹' + w.balance.toLocaleString('en-IN'), { size: 6.5, off: false })),
           sentence(left > 5 ? ['Enough for about ', { chip: `${left} rides` }, '. Rides are paid the moment you book.'] : ['Running low. ', { chip: 'Add money' }, ' to keep rides booking.']),
-          h('div', { class: 'flex mt12', style: { gap: '8px' } }, btn('Book rides', { arrow: true, onClick: () => { app.sel = new Set(); ui.go('trip'); } }), h('button', { class: 'btn dark', style: { flex: 'none' }, onclick: () => ui.go('wallet') }, icon('plus', 18)))),
+          h('div', { class: 'flex mt12', style: { gap: '8px' } }, btn('Book rides', { arrow: true, onClick: () => { app.sel = new Set(); ui.go('trip'); } }), h('button', { class: 'btn dark', style: { flex: 'none' }, 'aria-label': 'Add money to company wallet', title: 'Add money', onclick: () => ui.go('wallet') }, icon('plus', 18)))),
         h('div', { class: 'tiles mt12' }, tile('Live now', live.length), tile('Scheduled', sched.length), tile('Cars saved today', st().stats.carsSavedToday), tile('Saved today', inr(st().stats.savedToday))),
         live.length > 0 && h('div', { class: 'card mt12' }, h('div', { class: 'card-head' }, h('h3', null, 'Happening now'), h('button', { class: 'label', onclick: () => ui.reset('rides') }, 'See all')), live.slice(0, 3).map(rideRow)),
         h('div', { class: 'mt12' }, ad())),
@@ -88,7 +88,7 @@ export function createManager(s) {
           h('div', { class: 'flex between mt12', style: { padding: '0 4px' } }, h('span', { class: 'small' }, `${app.sel.size} selected`), h('button', { class: 'small strong', style: { color: 'var(--lavender)' }, onclick: () => { list.forEach(r => allOn ? app.sel.delete(r.id) : app.sel.add(r.id)); ui.dirty(); } }, allOn ? 'Clear' : 'Select all')),
           h('div', { class: 'card mt8', style: { padding: '4px 14px' } }, list.map(r => h('button', { class: 'row', style: { width: '100%', textAlign: 'left' }, onclick: () => { app.sel.has(r.id) ? app.sel.delete(r.id) : app.sel.add(r.id); ui.dirty(); } },
             h('div', { class: 'avatar' }, initials(r.name)), h('div', { class: 'grow' }, h('div', { class: 't' }, r.name), h('div', { class: 's' }, `${r.team} · ${placeName(r.home)}`)), h('span', { class: `select ${app.sel.has(r.id) ? 'on' : ''}` }, app.sel.has(r.id) ? icon('check') : null))))),
-        h('div', { class: 'dock' }, btn(app.sel.size ? `See smart plan · ${app.sel.size}` : 'Choose people', { arrow: true, disabled: !app.sel.size, onClick: () => ui.go('plan') }))];
+        h('div', { class: 'dock' }, btn(app.sel.size ? `See smart plan · ${app.sel.size}` : 'Select at least 1 person', { arrow: true, disabled: !app.sel.size, onClick: () => ui.go('plan') }))];
     },
 
     plan() {
@@ -103,7 +103,6 @@ export function createManager(s) {
             h('div', { class: 'num-label' }, `cars for ${n} people`),
             h('div', { class: 'num-row' }, dotNumber(String(p.cars.length), { size: 11, off: false })),
             sentence(p.saved > 0 ? [`Same-route riders share one car. `, { chip: `${inr(p.saved)} saved` }, ` against ${n} separate cabs.`] : [p.sentence])),
-          explainer(app, 'pool'),
           h('div', { class: 'card mt12 flex between' }, h('div', null, h('div', { style: { fontWeight: 500 } }, 'Share cars on the same route'), h('div', { class: 'label' }, 'Detour capped at 20% per person')), h('button', { class: 'toggle', 'aria-pressed': String(app.share), onclick: () => { app.share = !app.share; ui.dirty(); } })),
           h('div', { class: 'mt12' }, map({ height: 190, routes, pins, focus: pins, labels: false })),
           night && h('div', { class: 'card mt12 flex', style: { gap: '12px' } }, h('span', { class: 'ic', style: { color: 'var(--aqua)' } }, icon('shieldcheck')), h('div', { class: 'small' }, 'Night rule applied: a woman is never the first pickup or the last drop when sharing with a male colleague.')),

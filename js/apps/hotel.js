@@ -13,13 +13,18 @@ export function createHotel(s) {
   const hotel = () => st().hotels.find(x => x.id === app.hotel);
   const rideFor = g => st().rides.find(r => r.guestId === g.id && r.status !== 'cancelled');
 
+  // Domestic arrivals need about 15 min to the kerb; international ones need immigration and bags.
+  const INTL = ['EK', 'QR', 'EY', 'SQ', 'BA', 'LH', 'AF', 'TK', 'SV', 'FZ', 'G9', 'WY'];
+  const bufferMin = g => (g.flight && INTL.includes(g.flight.split(' ')[0]) ? 45 : 15);
+  const landedNoCar = g => g.land && !rideFor(g) && g.land + (g.delay || 0) * 60e3 <= st().now;
+
   function book(g, cls, dir) {
     const now = st().now;
     const arriving = dir === 'in';
-    const at = arriving ? g.land + (g.delay || 0) * 60e3 + 15 * 60e3 : g.checkout;
+    const at = arriving ? g.land + (g.delay || 0) * 60e3 + bufferMin(g) * 60e3 : g.checkout;
     const params = arriving ? { pickup: 'rgia', drop: hotel().place } : { pickup: hotel().place, drop: 'rgia' };
     const e = estimate(s, { ...params, cls, trip: 'airport', at });
-    const id = bookRide(s, { riderId: `guest-${g.id}`, ...params, cls, trip: 'airport', channel: 'hotel', payer: app.hotel, at: at > now ? at : null, fare: e.fare, flight: arriving && g.flight ? { no: g.flight, land: g.land, delay: g.delay || 0 } : null, guest: g.name });
+    const id = bookRide(s, { riderId: `guest-${g.id}`, ...params, cls, trip: 'airport', channel: 'hotel', payer: app.hotel, at: at > now ? at : null, fare: e.fare, flight: arriving && g.flight ? { no: g.flight, land: g.land, delay: g.delay || 0, buffer: bufferMin(g) } : null, guest: g.name });
     const r = st().rides.find(x => x.id === id); r.guestId = g.id;
     charge(s, app.hotel, e.fare, id);
     app.open = null; ui.dirty();
@@ -36,8 +41,8 @@ export function createHotel(s) {
       h('tr', { class: r ? '' : 'click', onclick: r ? null : () => { app.open = open ? null : g.id; ui.dirty(); } },
         h('td', null, h('div', { class: 'flex' }, h('div', { class: 'avatar', style: { width: '32px', height: '32px', fontSize: '11.5px' } }, initials(g.name)), h('div', null, h('div', { style: { fontWeight: 500 } }, g.name), h('div', { class: 'label' }, `Room ${g.room}`)))),
         h('td', null, g.flight ? h('div', null, h('div', null, g.flight), h('div', { class: 'label' }, g.from)) : h('span', { class: 'label' }, 'Checkout')),
-        h('td', null, h('div', null, fmtTime(lands)), g.delay ? pill(`${g.delay} min late`, 'warn') : g.flight ? h('div', { class: 'label' }, 'On time') : null),
-        h('td', null, r ? h('div', null, pill(status, r.status === 'completed' ? 'good' : ACTIVE.includes(r.status) ? 'violet' : ''), d && h('div', { class: 'label', style: { marginTop: '4px' } }, `${d.name} · ${st().cars.find(c => c.id === r.carId).plate}`)) : h('span', { class: 'label' }, 'Not booked')),
+        h('td', null, h('div', null, fmtTime(lands)), g.delay ? pill(`${g.delay} min late`, 'warn') : g.flight ? h('div', { class: 'label' }, lands <= st().now ? 'Landed' : 'On time') : null),
+        h('td', null, r ? h('div', null, pill(status, r.status === 'completed' ? 'good' : ACTIVE.includes(r.status) ? 'violet' : ''), d && h('div', { class: 'label', style: { marginTop: '4px' } }, `${d.name} · ${st().cars.find(c => c.id === r.carId).plate}`)) : landedNoCar(g) ? pill('Landed · no car', 'warn') : h('span', { class: 'label' }, 'Not booked')),
         h('td', { class: 'num' }, r ? h('div', { class: 'flex', style: { justifyContent: 'flex-end', gap: '6px' } },
           r.flight && r.status === 'scheduled' && h('button', { class: 'btn dark sm', onclick: e => { e.stopPropagation(); g.delay = (g.delay || 0) + 40; setFlightDelay(s, r.id, g.delay); } }, 'Flight update'),
           ['scheduled', 'finding'].includes(r.status) && h('button', { class: 'btn dark sm', onclick: e => { e.stopPropagation(); cancelRide(s, r.id, 'hotel'); } }, 'Cancel'))
@@ -55,13 +60,17 @@ export function createHotel(s) {
 
   const pages = {
     arrivals() {
-      const guests = hotel().guests.filter(g => g.flight);
+      const guests = hotel().guests.filter(g => g.flight).sort((a, b) => landedNoCar(b) - landedNoCar(a));
+      const waiting = guests.filter(landedNoCar);
       const transfers = st().rides.filter(r => r.payer === app.hotel && !r.history && r.status !== 'cancelled');
       return [h('div', { class: 'page-head' }, h('div', null, h('h2', null, 'Guest transfers', h('br'), h('span', { class: 'dim' }, `Today at ${hotel().name}`)), h('p', null, 'Click a guest, pick the car, book. Flights are tracked and pickups move on their own.'))),
         h('div', { class: 'wgrid c3' },
           kpi('Arriving today', guests.length, `${guests.filter(g => rideFor(g)).length} booked`),
           kpi('Transfers today', transfers.length + 1, 'incl. 1 completed'),
           kpi('This month, billed to rooms', inr(st().wallets[app.hotel].balance + 18640), 'Monthly invoice')),
+        waiting.length > 0 && h('div', { class: 'panel mt16 flex between', style: { boxShadow: 'inset 0 0 0 1.5px var(--ember)' } },
+          h('div', null, h('b', null, `${waiting.length} guest${waiting.length > 1 ? 's have' : ' has'} landed with no car booked`), h('div', { class: 'label' }, waiting.map(g => `${g.name} · ${g.flight}`).join(', '))),
+          h('button', { class: 'btn primary sm', onclick: () => { app.open = waiting[0].id; ui.dirty(); } }, `Book for ${waiting[0].name.split(' ').slice(-1)[0]} now`)),
         h('div', { class: 'panel mt16' }, h('h3', null, 'Arrivals', h('span', { class: 'label' }, 'RGIA to hotel')),
           h('table', { class: 't' }, h('thead', null, h('tr', null, ['Guest', 'Flight', 'Lands', 'Transfer', ''].map(x => h('th', null, x)))), h('tbody', null, guests.flatMap(g => guestRow(g, 'in'))))),
         h('div', { class: 'panel mt16' }, h('h3', null, 'Departures', h('span', { class: 'label' }, 'Hotel to RGIA')),

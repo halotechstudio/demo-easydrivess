@@ -9,7 +9,7 @@ import { charge } from '../engine/wallet.js';
 import { callSheet, chatSheet, shareSheet, menuSheet, adSheet, flash, openSheet, closeSheet } from './sheets.js';
 import { profileScreens, walletScreen, inboxScreen, payMethodSheet, payLabel, topUpSheet } from './rider-account.js';
 import { raiseAlert, closeAlert } from '../engine/safety.js';
-import { router, ACTIVE, placeName, etaFor, driverCard, stopList, mapForRide, greet } from './common.js';
+import { router, ACTIVE, placeName, etaFor, nearCount, driverCard, stopList, mapForRide, greet } from './common.js';
 
 const H = 3600e3;
 
@@ -20,7 +20,11 @@ export function createRider(s) {
   const myRides = () => s.get().rides.filter(r => r.riderIds.includes(app.who));
   const active = () => myRides().find(r => ACTIVE.includes(r.status));
   const unrated = () => myRides().find(r => r.status === 'completed' && !r.rating && !r.history && s.get().now - r.completedAt < 45 * 60e3);
-  const work = () => app.profile === 'work' && (me().company || me().workCompany);
+  const myCompany = () => me().company || me().workCompany;
+  // Work billing: chosen profile, or automatic when the trip starts or ends at the company office.
+  const officeOf = id => s.get().companies.find(c => c.id === id)?.office;
+  const workFor = p => { const c = myCompany(); if (!c) return null; if (app.profile === 'work') return c; const o = officeOf(c); return p && (p.drop === o || p.pickup === o) ? c : null; };
+  const work = () => app.profile === 'work' && myCompany();
   const here = () => me().company ? me().home : 'jubilee';
 
   // Show an ad once per screen visit (impression counted once).
@@ -34,11 +38,11 @@ export function createRider(s) {
 
   function book(params, cls, fare) {
     const st = s.get();
-    const company = work();
+    const company = workFor(params);
     // Work rides are paid from the company wallet first; no money, no booking.
     if (company && charge(s, company, fare, 'work ride', `Work ride · ${placeName(params.pickup)} to ${placeName(params.drop)}`) !== 'ok') { app.err = `${st.companies.find(c => c.id === company).name} wallet is low. Ask your manager to add money, or switch to Personal.`; ui.dirty(); return; }
     // Personal rides: Easydrivess Money is charged up front; UPI and cash are settled at the end.
-    const method = company ? 'company' : me().payMethod;
+    const method = company ? 'company' : (me().payMethod === 'company' ? 'upi' : me().payMethod);
     if (method === 'wallet' && charge(s, app.who, fare, 'ride', `Ride · ${placeName(params.pickup)} to ${placeName(params.drop)}`) !== 'ok') {
       app.err = `Easydrivess Money has ${inr(s.get().wallets[app.who].balance)}. Add money or pay by UPI.`; app.errAction = 'topup'; ui.dirty(); return;
     }
@@ -80,12 +84,12 @@ export function createRider(s) {
           // Live feature carousel: each frame is real data for one feature; tap opens the one on screen.
           (() => {
             const cls = me().prefs?.cls || app.lastCls; const eta = etaFor(s, cls, rebook.pickup);
-            const near = st.drivers.filter(d => d.online && !d.busy).length;
+            const near = nearCount(s, rebook.pickup);
             const air = estimate(s, { pickup: here(), drop: 'rgia', cls, trip: 'airport' });
             const ic = estimate(s, { pickup: here(), drop: 'vijayawada', cls: 'SUV', trip: 'intercity' });
             const w = st.wallets[app.who]; const top = upcoming[0];
             const frames = [
-              { label: eta != null ? `A ${cls} can be at your door in` : `No ${cls} free nearby`, num: eta != null ? String(eta) : '--', unit: 'min', sent: [`${near} cars free around ${placeName(rebook.pickup)}. To ${placeName(rebook.drop)} `, { chip: inr(rbEst.fare) }, ', tap to book.'], go: () => ui.go('book', { pickup: rebook.pickup, drop: rebook.drop, trip: 'city' }) },
+              { label: eta != null ? `A ${cls} can be at your door in` : `No ${cls} free nearby`, num: eta != null ? String(eta) : '--', unit: 'min', sent: [near ? `${near} car${near > 1 ? 's' : ''} free around ${placeName(rebook.pickup)}. To ${placeName(rebook.drop)} ` : `No car close to ${placeName(rebook.pickup)} right now. To ${placeName(rebook.drop)} `, { chip: inr(rbEst.fare) }, ', tap to book.'], go: () => ui.go('book', { pickup: rebook.pickup, drop: rebook.drop, trip: 'city' }) },
               { label: 'Airport drop to RGIA', num: inr(air.fare).replace(/,/g, ','), unit: `${air.min} min · flight tracked`, sent: ['We plan around your flight and wait ', { chip: '45 min free' }, ' on pickups.'], go: () => ui.go('airport', { pickup: here() }) },
               { label: 'Intercity · Vijayawada', num: '275', unit: 'km door to door', sent: ['SUV one way from ', { chip: inr(ic.fare) }, '. Round trips with the same driver.'], go: () => ui.go('intercity', { pickup: here() }) },
               { label: top ? `${top.templateId ? 'Repeating' : 'Scheduled'} ride` : 'Schedule ahead', num: top ? fmtTime(top.at).replace(/ (AM|PM)/, '') : '9:00', unit: top ? fmtTime(top.at).slice(-2) : 'AM tomorrow', sent: top ? [`${top.cls} to ${placeName(top.drop)}, driver assigned `, { chip: '20 min before' }, '.'] : ['Book once, ', { chip: 'repeat every weekday' }, '. We dispatch it for you.'], go: () => ui.go('schedule', { pickup: here() }) },
@@ -108,7 +112,7 @@ export function createRider(s) {
               h('button', { class: 'choice', onclick: () => k === 'city' ? ui.go('where', { pickup: here() }) : ui.go(k, { pickup: here() }) }, animIcon(k), l))),
           h('button', { class: 'card mt12', style: { width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '12px' }, onclick: () => book({ ...rebook, trip: 'city' }, app.lastCls, rbEst.fare) },
             h('span', { class: 'ic' }, icon('repeat')),
-            h('span', { class: 'grow' }, h('div', { style: { fontWeight: 600, fontSize: '14.5px' } }, `Book again: ${placeName(rebook.drop)}`), h('div', { class: 'label' }, `${app.lastCls} · ${inr(rbEst.fare)} · from ${placeName(rebook.pickup)}`)),
+            h('span', { class: 'grow' }, h('div', { style: { fontWeight: 600, fontSize: '14.5px' } }, `Book again: ${placeName(rebook.drop)}`), h('div', { class: 'label' }, `${app.lastCls} · ${inr(rbEst.fare)} · from ${placeName(rebook.pickup)}${workFor(rebook) ? ' · work, billed to company' : ''}`)),
             h('span', { class: 'pill violet' }, '1 tap')),
           h('div', { class: 'mt12' }, ad('rider-home', 'home')),
           upcoming.length > 1 && h('div', { class: 'card mt12' }, h('div', { class: 'card-head' }, h('h3', null, 'Scheduled')),
@@ -215,7 +219,7 @@ export function createRider(s) {
             h('button', { class: 'row', style: { width: '100%', textAlign: 'left' }, onclick: () => !company && payMethodSheet(app, s) }, h('span', { class: 'ic' }, icon(company ? 'work' : 'wallet')), h('div', { class: 'grow' }, h('div', { class: 't' }, company ? `${st.companies.find(c => c.id === company).name} pays` : payLabel(s, me()).title), h('div', { class: 's' }, company ? 'You pay ₹0' : payLabel(s, me()).sub)), !company && h('span', { class: 'label' }, 'Change')))),
         h('div', { class: 'dock' },
           app.err && h('div', { class: 'card flex', style: { marginBottom: '8px', background: 'rgba(255,90,69,.12)', gap: '10px' } }, h('div', { class: 'small grow', style: { color: '#FF8A78' } }, app.err), app.errAction === 'topup' && h('button', { class: 'btn primary sm', onclick: () => topUpSheet(app, s, app.who, () => { app.err = null; ui.dirty(); }) }, 'Add money')),
-          btn(`Book ${cls} · ${inr(e.fare)}`, { arrow: true, onClick: () => { app.pick = null; book(p, cls, e.fare); } }))];
+          btn(`Book ${cls} · ${inr(e.fare)}${workFor(p) ? ` · billed to ${s.get().companies.find(c => c.id === workFor(p)).name.split(' ')[0]}` : ''}`, { arrow: true, onClick: () => { app.pick = null; book(p, cls, e.fare); } }))];
     },
 
     ride({ id }) {
@@ -239,7 +243,7 @@ export function createRider(s) {
           h('div', { class: 'num-label' }, `Your ${r.cls} is arriving`),
           scrollNumber(String(left), [left + 2, left + 1, Math.max(0, left - 1), Math.max(0, left - 2)].map(String), { size: 11 }),
           h('div', { class: 'num-label', style: { margin: '6px 0 0' } }, 'min'),
-          sentence([`${d.name.split(' ')[0]} is ${(r.approach.km * (1 - r.approach.progress)).toFixed(1)} km away. Check the plate `, { chip: st.cars.find(c => c.id === r.carId).plate }, '.']));
+          sentence([r.approach.km * (1 - r.approach.progress) < 0.2 ? `${d.name.split(' ')[0]} is almost at your pickup. Check the plate ` : `${d.name.split(' ')[0]} is ${(r.approach.km * (1 - r.approach.progress)).toFixed(1)} km away. Check the plate `, { chip: st.cars.find(c => c.id === r.carId).plate }, '.']));
       } else if (r.status === 'arrived') {
         heroEl = h('div', { class: 'hero condition' },
           h('div', { class: 'num-label' }, 'Your driver is here. Share this code'),
@@ -326,7 +330,7 @@ export function createRider(s) {
             h('div', { class: 'flex', style: { gap: '8px' } },
               h('button', { class: 'iconbtn', 'aria-label': 'Yes', style: rated.clean === true ? { background: 'var(--aqua)', color: 'var(--ink)' } : null, onclick: () => { app.rate = { ...app.rate, [r.id]: { ...rated, clean: true } }; ui.dirty(); } }, icon('thumbup')),
               h('button', { class: 'iconbtn', 'aria-label': 'No', style: rated.clean === false ? { background: 'var(--ember)', color: '#fff' } : null, onclick: () => { app.rate = { ...app.rate, [r.id]: { ...rated, clean: false } }; ui.dirty(); } }, icon('thumbdown'))))),
-        h('div', { class: 'mt12' }, ad('rider-complete', r.id))),
+        null),
       h('div', { class: 'dock' }, btn('Done', { arrow: true, onClick: fin }))];
   }
 

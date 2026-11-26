@@ -345,3 +345,12 @@ svg.ai :is(.ai-plane, .ai-trail, .ai-road, .ai-dot, .ai-hand), svg.ai .ai-win re
 .whatsapp-skin .wa-in .in::placeholder { color: var(--wa-mt); }
 .whatsapp-skin .wa-in .ic { color: var(--wa-mt); width: 34px; height: 36px; display: grid; place-items: center; background: none; flex: none; }
 .whatsapp-skin .composer .send { width: 46px; height: 46px; background: var(--wa-acc); color: #0B141A; box-shadow: none; flex: none; }
+
+
+/* ---- Tap targets: at least 44px hit area without changing the visual ---- */
+.toggle { position: relative; }
+.toggle::before { content: ''; position: absolute; inset: -8px -2px; }
+.ex-close { width: 36px !important; height: 36px !important; }
+.card-head button.label, h3 button.label, button.small.strong, .center > button.label { position: relative; }
+.card-head button.label::before, h3 button.label::before, button.small.strong::before, .center > button.label::before { content: ''; position: absolute; inset: -13px -10px; }
+.pf button { min-height: 32px; min-width: 48px; }
