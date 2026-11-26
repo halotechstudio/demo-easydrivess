@@ -17,10 +17,29 @@ const bot = (c, m) => { const msg = { from: 'bot', at: Date.now(), ...m }; c.mes
 export function waHandle(s, chatId, input) {
   const st = s.get(); const c = chatOf(s, chatId); const out = [];
   const say = m => out.push(bot(c, m));
+  // Attachments: photos, documents and contacts never change the booking step.
+  if (/^(photo|doc|contact):/.test(input)) {
+    const [kind, ...rest] = input.split(':'); const val = rest.join(':');
+    c.messages.push({ from: 'user', kind, text: val });
+    if (kind === 'contact') {
+      c.data = { ...(c.data || {}), contact: val };
+      say({ kind: 'text', text: `Got it. We will send the driver details and live trip link to ${val.split('|')[0]} as well.` });
+    } else if (kind === 'photo') say({ kind: 'text', text: c.data?.rideId ? 'Photo received and added to your trip. If something is wrong with the car, our team replies within 10 minutes.' : 'Photo received. For a lost item or a car issue, our team replies within 10 minutes.' });
+    else say({ kind: 'text', text: c.data?.rideId ? 'Document received. We will add it to the GST invoice for this trip.' : 'Document received. Our team will look at it and reply here.' });
+    s.dispatch('whatsapp', c);
+    return out;
+  }
   const label = input.startsWith('loc:') ? `📍 Location · ${places[input.slice(4)].name}` : input.startsWith('drop:') ? places[input.slice(5)].name : input.startsWith('cls:') ? input.slice(4) : input;
   c.messages.push({ from: 'user', text: label.replace('📍 ', ''), kind: input.startsWith('loc:') ? 'location' : 'text', place: input.startsWith('loc:') ? input.slice(4) : null });
 
-  if (/^(hi|hello|hey|book)/i.test(input) || c.stage === 'start' || c.stage === 'confirmed' && /^(hi|book)/i.test(input)) {
+  // A shared location starts a city booking from that spot, or answers the drop question.
+  if (input.startsWith('loc:') && ['start', 'type', 'confirmed'].includes(c.stage || 'start')) {
+    c.data = { type: 'City', pickup: input.slice(4), contact: c.data?.contact }; c.stage = 'drop';
+    say({ kind: 'text', text: `Pickup set to ${places[c.data.pickup].name}. Where to? Pick one or share the drop location.` });
+    say({ kind: 'buttons', buttons: SUGGEST.City.filter(p => p !== c.data.pickup).map(p => `drop:${p}`) });
+  } else if (input.startsWith('loc:') && c.stage === 'drop') {
+    c.data.drop = input.slice(4); c.stage = 'cls'; classCards(s, c, say);
+  } else if (/^(hi|hello|hey|book)/i.test(input) || c.stage === 'start' || c.stage === 'confirmed' && /^(hi|book)/i.test(input)) {
     c.stage = 'type'; c.data = {};
     say({ kind: 'text', text: `Hello ${c.name.split(' ')[0]}. Where are you going today?` });
     say({ kind: 'buttons', buttons: ['Airport', 'City', 'Intercity'] });

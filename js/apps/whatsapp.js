@@ -17,16 +17,26 @@ const P = {
   call: 'M6.6 10.8a15.1 15.1 0 006.6 6.6l2.2-2.2a1 1 0 011-.25 11.4 11.4 0 003.6.57 1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.45.57 3.57a1 1 0 01-.25 1z',
   lock: 'M12 2a5 5 0 00-5 5v3H6a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2v-8a2 2 0 00-2-2h-1V7a5 5 0 00-5-5zm-3 8V7a3 3 0 016 0v3z',
   check: 'M9.5 16.2L5.3 12l-1.4 1.4 5.6 5.6 12-12-1.4-1.4z',
+  kbd: 'M20 5H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V7a2 2 0 00-2-2zm-9 3h2v2h-2zm0 3h2v2h-2zM8 8h2v2H8zm0 3h2v2H8zm-1 2H5v-2h2zm0-3H5V8h2zm9 7H8v-2h8zm0-4h-2v-2h2zm0-3h-2V8h2zm3 3h-2v-2h2zm0-3h-2V8h2z',
+  doc: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zm-1 7V3.5L18.5 9z',
+  img: 'M21 19V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2zM8.5 13.5l2.5 3 3.5-4.5 4.5 6H5z',
+  pin: 'M12 2a7 7 0 00-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 00-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z',
+  person: 'M12 12a4 4 0 100-8 4 4 0 000 8zm0 2c-2.7 0-8 1.3-8 4v2h16v-2c0-2.7-5.3-4-8-4z',
 };
+const EMOJI = ["😀","😂","😊","😍","🙏","👍","👌","👋","🙌","😅","😎","🤔","😢","😡","❤️","🔥","🎉","✅","🚕","🚗","✈️","🧳","📍","⏰","🏠","🏢","☕","🌙","⭐","💯","🙂","👏"];
+const CONTACTS = [['Meera Rao', 'Mother', '+91 98490 11223'], ['Arjun Rao', 'Brother', '+91 99630 44187'], ['Office desk', 'Orbit Infotech', '+91 40 6612 3000']];
+const DOCS = [['Company GST details.pdf', 'PDF · 84 KB · 1 page'], ['Travel approval.pdf', 'PDF · 212 KB · 2 pages']];
 const meta = (t, me) => h('span', { class: 'time' }, t, me ? h('svg', { class: 'tk', viewBox: '0 0 20 12', width: 17, height: 11, fill: 'none', stroke: 'currentColor', 'stroke-width': 1.7, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, h('path', { d: 'M1 6.5l3.2 3.2L11 2.5M8.2 9.2l.5.5L15.5 2.5' })) : null);
 const logo = n => h('svg', { viewBox: '0 0 32 32', width: n, height: n }, h('rect', { width: 32, height: 32, rx: 16, fill: '#6246EA' }), h('path', { d: 'M10 9h12v3.6h-8v2.2h6v3.2h-6v2.4h8V24H10z', fill: '#fff' }));
 
 // A generic chat app (our own drawing, not WhatsApp's branding) driving the chat-booking engine.
 export function createWhatsApp(s) {
   const ui = router('chat');
-  const app = { id: 'whatsapp', ui, chat: 'wa-rahul', draft: '' };
+  const app = { id: 'whatsapp', ui, chat: 'wa-rahul', draft: '', panel: null };
   const chat = () => s.get().whatsapp[app.chat];
-  const send = text => { if (!text.trim()) return; waHandle(s, app.chat, text.trim()); app.draft = ''; ui.dirty(); };
+  const send = text => { if (!text.trim()) return; waHandle(s, app.chat, text.trim()); app.draft = ''; app.panel = null; ui.dirty(); };
+  const panel = p => { app.panel = app.panel === p ? null : p; ui.dirty(); };
+  const focusInput = () => setTimeout(() => { const el = document.querySelector('.whatsapp-skin .wa-in .in'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 0);
 
   function bubble(m, i, last) {
     const t = fmtClock(s.get().now);
@@ -35,6 +45,9 @@ export function createWhatsApp(s) {
         h('div', { style: { borderRadius: '13px', overflow: 'hidden', background: '#2B1D86', height: '86px', width: '190px', position: 'relative' } },
           h('svg', { viewBox: '0 0 190 86', width: 190, height: 86 }, [20, 50, 80, 110, 140, 170].map(x => h('line', { x1: x, y1: 0, x2: x - 20, y2: 86, stroke: 'rgba(255,255,255,.08)' })), [20, 45, 70].map(y => h('line', { x1: 0, y1: y, x2: 190, y2: y + 6, stroke: 'rgba(255,255,255,.08)' })), h('circle', { cx: 95, cy: 43, r: 8, fill: '#E9E8FB', stroke: '#2B1D86', 'stroke-width': 3 }))),
         h('div', { style: { padding: '6px 6px 2px', fontSize: '13.5px' } }, m.text), meta(t, true));
+      if (m.kind === 'photo') return h('div', { class: 'msg me media' }, h('div', { class: 'wa-photo' }, sv(P.img, 34), h('span', null, m.text)), meta(t, true));
+      if (m.kind === 'doc') return h('div', { class: 'msg me media' }, h('div', { class: 'wa-doc' }, h('i', null, 'PDF'), h('div', null, h('b', null, m.text.split('|')[0]), h('small', null, m.text.split('|')[1] || ''))), meta(t, true));
+      if (m.kind === 'contact') { const [n, , ph] = m.text.split('|'); return h('div', { class: 'msg me media' }, h('div', { class: 'wa-contact' }, h('span', { class: 'cav' }, sv(P.person, 20)), h('div', null, h('b', null, n), h('small', null, ph))), h('div', { class: 'wa-contact-act' }, 'Message'), meta(t, true)); }
       return h('div', { class: 'msg me' }, m.text, meta(t, true));
     }
     const active = last; // only the latest prompt's buttons stay tappable
@@ -60,7 +73,7 @@ export function createWhatsApp(s) {
     const c = chat();
     const msgs = c?.messages || [];
     const lastBotIdx = msgs.map((m, i) => (m.from === 'bot' && ['buttons', 'classes'].includes(m.kind) ? i : -1)).filter(i => i >= 0).pop();
-    const lastUser = msgs.map((m, i) => (m.from === 'user' ? i : -1)).filter(i => i >= 0).pop() ?? -1;
+    const lastUser = msgs.map((m, i) => (m.from === 'user' && !['photo', 'doc', 'contact'].includes(m.kind) ? i : -1)).filter(i => i >= 0).pop() ?? -1;
     const started = msgs.length && chat()?.stage !== 'confirmed';
     const call = () => callSheet(app, { name: 'Easydrivess', role: 'Booking line' });
     return [
@@ -77,13 +90,27 @@ export function createWhatsApp(s) {
           h('b', null, 'Easydrivess'), h('span', null, 'Cab booking · Gurugram'),
           h('p', null, 'Book a cab in 4 taps. Fare locked before you confirm. Pay by UPI or to the driver.')),
         msgs.map((m, i) => bubble(m, i, i === lastBotIdx && lastBotIdx > lastUser))),
-      !started && h('div', { class: 'wa-suggest' }, h('button', { onclick: () => send('hi') }, msgs.length ? '\u{1F695} Book another ride' : '\u{1F44B} Hi'), !msgs.length && h('button', { onclick: () => send('hi') }, '\u{1F695} Book a cab')),
+      app.panel === 'attach' && h('div', { class: 'wa-attach' }, [
+        ['Document', P.doc, '#7F66FF', () => panel('doc')], ['Camera', P.cam, '#FF2E74', () => send('photo:IMG_' + (2040 + chat()?.messages.length || 0) + '.jpg')],
+        ['Gallery', P.img, '#BF59CF', () => send('photo:Car photo.jpg')], ['Location', P.pin, '#1FA855', () => panel('loc')], ['Contact', P.person, '#009DE2', () => panel('contact')],
+      ].map(([l, d, c, run]) => h('button', { onclick: run }, h('span', { style: { background: c } }, sv(d, 24)), l))),
+      app.panel === 'loc' && h('div', { class: 'wa-list' }, h('div', { class: 'wa-list-h' }, h('button', { 'aria-label': 'Back to attach', onclick: () => panel('attach') }, icon('back')), 'Send location'),
+        h('button', { class: 'live', onclick: () => send('loc:jubilee') }, h('span', { class: 'ic g' }, sv(P.pin, 20)), h('div', null, h('b', null, 'Send your current location'), h('small', null, 'Accurate to 10 metres · Jubilee Hills'))),
+        h('div', { class: 'wa-list-s' }, 'Nearby places'),
+        ['kondapur', 'begumpet', 'gachibowli', 'hitec', 'banjara'].map(p => h('button', { onclick: () => send('loc:' + p) }, h('span', { class: 'ic' }, sv(P.pin, 18)), h('div', null, h('b', null, places[p].name.split(' · ')[0]), h('small', null, 'Hyderabad'))))),
+      app.panel === 'contact' && h('div', { class: 'wa-list' }, h('div', { class: 'wa-list-h' }, h('button', { 'aria-label': 'Back to attach', onclick: () => panel('attach') }, icon('back')), 'Share contact'),
+        CONTACTS.map(([n, r, ph]) => h('button', { onclick: () => send(`contact:${n}|${r}|${ph}`) }, h('span', { class: 'ic b' }, sv(P.person, 18)), h('div', null, h('b', null, n), h('small', null, `${r} · ${ph}`))))),
+      app.panel === 'doc' && h('div', { class: 'wa-list' }, h('div', { class: 'wa-list-h' }, h('button', { 'aria-label': 'Back to attach', onclick: () => panel('attach') }, icon('back')), 'Send document'),
+        DOCS.map(([n, m]) => h('button', { onclick: () => send(`doc:${n}|${m}`) }, h('span', { class: 'ic v' }, sv(P.doc, 18)), h('div', null, h('b', null, n), h('small', null, m))))),
+      !app.panel && !started && h('div', { class: 'wa-suggest' }, h('button', { onclick: () => send('hi') }, msgs.length ? '\u{1F695} Book another ride' : '\u{1F44B} Hi'), !msgs.length && h('button', { onclick: () => send('hi') }, '\u{1F695} Book a cab')),
       h('div', { class: 'composer' },
-        h('div', { class: 'wa-in' }, h('button', { class: 'ic', 'aria-label': 'Emoji' }, sv(P.emoji, 22)),
-          h('input', { class: 'in', placeholder: 'Message', value: app.draft, oninput: e => { app.draft = e.target.value; }, onkeydown: e => { if (e.key === 'Enter') { send(e.target.value); e.target.blur(); } } }),
-          h('button', { class: 'ic', 'aria-label': 'Attach' }, sv(P.clip, 21, { style: 'transform:rotate(-45deg)' })),
-          h('button', { class: 'ic', 'aria-label': 'Camera' }, sv(P.cam, 20))),
+        h('div', { class: 'wa-in' }, h('button', { class: 'ic', 'aria-label': app.panel === 'emoji' ? 'Keyboard' : 'Emoji', 'aria-pressed': String(app.panel === 'emoji'), onclick: () => { panel('emoji'); if (!app.panel) focusInput(); } }, sv(app.panel === 'emoji' ? P.kbd : P.emoji, 22)),
+          h('input', { class: 'in', placeholder: 'Message', value: app.draft, oninput: e => { const had = !!app.draft; app.draft = e.target.value; if (had !== !!app.draft) { const b = document.querySelector('.whatsapp-skin .composer .send'); if (b) b.dataset.mode = app.draft ? 'send' : 'mic'; } }, onfocus: () => { if (app.panel && app.panel !== 'emoji') { app.panel = null; ui.dirty(); } }, onkeydown: e => { if (e.key === 'Enter') { send(e.target.value); e.target.blur(); } } }),
+          h('button', { class: 'ic', 'aria-label': 'Attach', 'aria-pressed': String(['attach', 'loc', 'contact', 'doc'].includes(app.panel)), onclick: () => panel(['loc', 'contact', 'doc'].includes(app.panel) ? 'attach' : 'attach') }, sv(P.clip, 21, { style: 'transform:rotate(-45deg)' })),
+          !app.draft && h('button', { class: 'ic', 'aria-label': 'Camera', onclick: () => send('photo:IMG_' + (2040 + (chat()?.messages.length || 0)) + '.jpg') }, sv(P.cam, 20))),
         h('button', { class: 'send', 'aria-label': 'Send', onclick: () => send(app.draft || 'hi') }, sv(P.send, 21))),
+      app.panel === 'emoji' && h('div', { class: 'wa-emoji' }, EMOJI.map(e => h('button', { 'aria-label': e, onclick: () => { app.draft = (app.draft || '') + e; ui.dirty(); } }, e)),
+        h('button', { class: 'bk', 'aria-label': 'Delete', onclick: () => { app.draft = [...(app.draft || '')].slice(0, -1).join(''); ui.dirty(); } }, icon('back'))),
     ];
   };
   function payUpi(m) {
