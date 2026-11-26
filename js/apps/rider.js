@@ -168,7 +168,7 @@ export function createRider(s) {
             ['vijayawada', 'warangal'].map(id => h('button', { class: 'row', style: { width: '100%', textAlign: 'left' }, onclick: () => { app.icDest = id; ui.dirty(); } },
               h('span', { class: 'ic' }, icon('route')), h('div', { class: 'grow' }, h('div', { class: 't' }, places[id].name), h('div', { class: 's' }, id === 'vijayawada' ? '275 km · about 4 h 30 min' : '145 km · about 2 h 20 min')),
               h('span', { class: `select ${dest === id ? 'on' : ''}` }, dest === id ? icon('check') : null)))),
-          h('div', { class: 'card mt12 flex between' }, h('div', null, h('div', { style: { fontWeight: 500 } }, 'Round trip'), h('div', { class: 'label' }, 'Driver waits, return the same day')), h('button', { class: 'toggle', 'aria-pressed': String(round), onclick: () => { app.icRound = !round; ui.dirty(); } }))),
+          h('div', { class: 'card mt12 flex between' }, h('div', null, h('div', { style: { fontWeight: 500 } }, 'Round trip'), h('div', { class: 'label' }, 'Driver waits, return the same day')), h('button', { class: 'toggle', 'aria-label': 'Round trip', 'aria-pressed': String(round), onclick: () => { app.icRound = !round; ui.dirty(); } }))),
         h('div', { class: 'dock' }, btn('Choose car', { arrow: true, onClick: () => ui.go('book', { pickup: p.pickup, drop: dest, trip: 'intercity', round }) }))];
     },
 
@@ -184,7 +184,7 @@ export function createRider(s) {
             h('div', { class: 'tabs-sm' }, r.saved.map(x => h('button', { 'aria-pressed': String(dest === x.place), onclick: () => { app.schDest = x.place; ui.dirty(); } }, x.label)))),
           h('div', { class: 'card mt12' }, h('div', { class: 'card-head' }, h('h3', null, 'When')),
             times.map(([l], i) => h('button', { class: 'row', style: { width: '100%', textAlign: 'left' }, onclick: () => { app.schT = i; ui.dirty(); } }, h('span', { class: 'ic' }, icon('clock')), h('div', { class: 'grow t' }, l), h('span', { class: `select ${i === ti ? 'on' : ''}` }, i === ti ? icon('check') : null)))),
-          h('div', { class: 'card mt12 flex between' }, h('div', null, h('div', { style: { fontWeight: 500 } }, 'Repeat every weekday'), h('div', { class: 'label' }, 'Booked and dispatched automatically')), h('button', { class: 'toggle', 'aria-pressed': String(rep), onclick: () => { app.schRep = !rep; ui.dirty(); } }))),
+          h('div', { class: 'card mt12 flex between' }, h('div', null, h('div', { style: { fontWeight: 500 } }, 'Repeat every weekday'), h('div', { class: 'label' }, 'Booked and dispatched automatically')), h('button', { class: 'toggle', 'aria-label': 'Repeat every weekday', 'aria-pressed': String(rep), onclick: () => { app.schRep = !rep; ui.dirty(); } }))),
         h('div', { class: 'dock' }, btn('Choose car', { arrow: true, onClick: () => ui.go('book', { pickup: dest === p.pickup ? 'hitec' : p.pickup, drop: dest, trip: 'city', at: tRide, repeat: rep }) }))];
     },
 

@@ -204,7 +204,7 @@ export function createOps(s) {
             h('td', null, h('div', { class: 'flex' }, h('span', { style: { width: '54px', height: '34px', borderRadius: '10px', display: 'block', backgroundImage: adBackground(a), backgroundSize: 'cover', backgroundPosition: 'center', flex: 'none' } }), h('div', null, h('div', { style: { fontWeight: 500 } }, a.advertiser), h('div', { class: 'label' }, a.title)))),
             h('td', null, h('div', { class: 'flex wrap', style: { gap: '4px' } }, a.slots.map(x => pill(AD_SLOTS.find(y => y.id === x)?.label || x)))),
             h('td', { class: 'num' }, a.impressions.toLocaleString('en-IN')), h('td', { class: 'num' }, a.clicks), h('td', { class: 'num' }, `${a.impressions ? (a.clicks / a.impressions * 100).toFixed(1) : '0.0'}%`), h('td', { class: 'num' }, inr(adRevenue(a))),
-            h('td', null, h('button', { class: 'toggle', 'aria-pressed': String(a.on), onclick: () => { a.on = !a.on; s.dispatch('ad', a); } })))))))];
+            h('td', null, h('button', { class: 'toggle', 'aria-label': `Ad ${a.advertiser} live`, 'aria-pressed': String(a.on), onclick: () => { a.on = !a.on; s.dispatch('ad', a); } })))))))];
     },
 
     payouts() {
@@ -228,7 +228,7 @@ export function createOps(s) {
               r && map({ height: 170, cars: [{ ...(d?.pos || places[r.pickup]), color: '#FF5A45', ring: true }], routes: [{ points: r.points, tone: 'ember' }], focus: [places[r.pickup], places[r.drop]] })),
             a.status === 'open' && h('div', { class: 'flex mt16' }, !a.ack && h('button', { class: 'btn primary sm', onclick: () => ackAlert(s, a.id) }, icon('phone', 15), 'Acknowledge and call rider'), h('button', { class: 'btn dark sm', onclick: () => callSheet(app, { name: d?.name || 'Driver', role: 'Driver on this trip' }) }, 'Call driver'), h('button', { class: 'btn dark sm', onclick: () => closeAlert(s, a.id) }, 'Mark safe and close')));
         }) : h('div', { class: 'panel' }, h('div', { class: 'label' }, 'No alerts today. Rules below apply to every ride.')),
-        h('div', { class: 'panel mt16' }, h('h3', null, 'Rules on every ride'), ['OTP before boarding', 'Night rule for women riders', 'Route deviation alerts', 'Long-stop check', 'Daily Shine Check, condition below 75 gets no premium rides'].map(t => h('div', { class: 'row' }, led(app.rules[t] === false ? '#555' : 'var(--aqua)', app.rules[t] !== false), h('div', { class: 'grow t' }, t), h('button', { class: 'toggle', 'aria-pressed': String(app.rules[t] !== false), onclick: () => { app.rules[t] = app.rules[t] === false; flash(app, app.rules[t] ? 'Rule on' : 'Rule off', t, app.rules[t] ? 'good' : 'warn'); } }))))];
+        h('div', { class: 'panel mt16' }, h('h3', null, 'Rules on every ride'), ['OTP before boarding', 'Night rule for women riders', 'Route deviation alerts', 'Long-stop check', 'Daily Shine Check, condition below 75 gets no premium rides'].map(t => h('div', { class: 'row' }, led(app.rules[t] === false ? '#555' : 'var(--aqua)', app.rules[t] !== false), h('div', { class: 'grow t' }, t), h('button', { class: 'toggle', 'aria-label': t, 'aria-pressed': String(app.rules[t] !== false), onclick: () => { app.rules[t] = app.rules[t] === false; flash(app, app.rules[t] ? 'Rule on' : 'Rule off', t, app.rules[t] ? 'good' : 'warn'); } }))))];
     },
 
     revenue() {

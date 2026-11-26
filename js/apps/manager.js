@@ -103,7 +103,7 @@ export function createManager(s) {
             h('div', { class: 'num-label' }, `cars for ${n} people`),
             h('div', { class: 'num-row' }, dotNumber(String(p.cars.length), { size: 11, off: false })),
             sentence(p.saved > 0 ? [`Same-route riders share one car. `, { chip: `${inr(p.saved)} saved` }, ` against ${n} separate cabs.`] : [p.sentence])),
-          h('div', { class: 'card mt12 flex between' }, h('div', null, h('div', { style: { fontWeight: 500 } }, 'Share cars on the same route'), h('div', { class: 'label' }, 'Detour capped at 20% per person')), h('button', { class: 'toggle', 'aria-pressed': String(app.share), onclick: () => { app.share = !app.share; ui.dirty(); } })),
+          h('div', { class: 'card mt12 flex between' }, h('div', null, h('div', { style: { fontWeight: 500 } }, 'Share cars on the same route'), h('div', { class: 'label' }, 'Detour capped at 20% per person')), h('button', { class: 'toggle', 'aria-label': 'Share cars on the same route', 'aria-pressed': String(app.share), onclick: () => { app.share = !app.share; ui.dirty(); } })),
           h('div', { class: 'mt12' }, map({ height: 190, routes, pins, focus: pins, labels: false })),
           night && h('div', { class: 'card mt12 flex', style: { gap: '12px' } }, h('span', { class: 'ic', style: { color: 'var(--aqua)' } }, icon('shieldcheck')), h('div', { class: 'small' }, 'Night rule applied: a woman is never the first pickup or the last drop when sharing with a male colleague.')),
           p.cars.map((c, i) => h('div', { class: 'card mt12' },
