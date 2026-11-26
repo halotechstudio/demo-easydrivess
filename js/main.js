@@ -84,7 +84,6 @@ function bar() {
   const tab = (v, l) => h('button', { 'aria-pressed': String(presenter.view === v), onclick: () => { presenter.view = v; layout(); } }, l);
   return h('header', { class: 'bar' },
     h('div', { class: 'wordmark' }, mark('violet'), 'Easydrivess', h('span', { class: 'demo-tag' }, 'Demo')),
-    h('div', { class: 'theme-toggle', role: 'group', 'aria-label': 'Theme' }, [['light', 'sun', 'Day'], ['dark', 'pause', 'Night']].map(([t, ic, l]) => h('button', { 'aria-pressed': String((document.documentElement.dataset.theme || 'dark') === t), onclick: () => { document.documentElement.dataset.theme = t; try { localStorage.setItem('ed-theme', t); } catch (e) {} layout(); } }, t === 'dark' ? moon() : icon(ic, 14), l))),
     h('nav', { class: 'tabs' }, tab('live', 'Live'), PHONES.map(([k, l]) => tab(k, l)), WEBS.map(([k, l]) => tab(k, l.split(' ')[0])), tab('gallery', 'Screens')),
     h('div', { class: 'spacer' }),
     h('div', { class: 'clock' },
@@ -97,7 +96,6 @@ function bar() {
         h('button', { onclick: () => { presenter.menu = false; boot(); layout(); } }, h('b', null, 'Reset demo'), h('small', null, 'Back to 9:00 AM with fresh data')))));
 }
 
-const moon = () => h('svg', { viewBox: '0 0 24 24', width: 14, height: 14, fill: 'none', stroke: 'currentColor', 'stroke-width': 1.6, 'stroke-linecap': 'round' }, h('path', { d: 'M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z' }));
 function layout() {
   const root = document.getElementById('root');
   const v = presenter.view;
